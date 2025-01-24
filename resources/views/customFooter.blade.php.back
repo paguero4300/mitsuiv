@@ -1,0 +1,95 @@
+<!--
+<style>
+    /* Footer Fijo */
+    .footer {
+        position: fixed; /* Fija el footer en la parte inferior */
+        bottom: 0; /* Posición al final de la ventana */
+        left: 0;
+        width: 100%; /* Ancho completo */
+        background-color: #0075BF !important; /* Color del fondo */
+        color: #ffffff !important; /* Color del texto */
+        padding: 5px 10px !important; /* Reducción de espaciado interno */
+        z-index: 1000; /* Encima del contenido */
+        font-size: 12px; /* Tamaño de fuente más pequeño */
+    }
+
+    /* Ajustar contenido principal */
+    .main-content {
+        margin-top: 60px; /* Espacio para el header */
+        padding: 15px; /* Ajuste del padding */
+        margin-bottom: 80px; /* Menor espacio para el footer */
+    }
+
+    /* Ajustes generales de texto e imágenes */
+    .footer p {
+        margin: 0;
+        line-height: 1.2; /* Espaciado compacto entre líneas */
+    }
+
+    .footer img {
+        width: 20px; /* Tamaño más pequeño de los íconos */
+        height: auto;
+    }
+
+    .footer .container {
+        flex-wrap: wrap; /* Permitir que el contenido se ajuste si es necesario */
+    }
+
+    .footer .grid {
+        gap: 8px; /* Reducir el espacio entre columnas */
+    }
+</style>
+
+<footer class="footer hidden md:flex flex-col">
+    <div class="container mx-auto flex flex-wrap justify-between items-center">
+
+        <div class="flex items-start mb-2">
+            <img src="{{ asset('images/logo_Mitsui_Blanco.png') }}" alt="logoMitsui" style="width: 10rem;">
+        </div>
+
+        <div class="grid grid-cols-2 gap-4 text-center">
+            <div>
+                <p class="text-xs">Redes Sociales Lima</p>
+                <div class="flex justify-center mt-1 space-x-2">
+                    <a href="https://www.facebook.com/MitsuiSeminuevos" target="_blank">
+                        <img src="{{ asset('images/logofb.png') }}" alt="Facebook" class="hover:scale-110 transition-transform">
+                    </a>
+                    <a href="https://www.instagram.com/mitsui_seminuevos/" target="_blank">
+                        <img src="{{ asset('images/logoInstagram.png') }}" alt="Instagram" class="hover:scale-110 transition-transform">
+                    </a>
+                </div>
+            </div>
+            <div>
+                <p class="text-xs">Redes Sociales Arequipa</p>
+                <div class="flex justify-center mt-1 space-x-2">
+                    <a href="https://www.facebook.com/mitsuiseminuevosarequipa" target="_blank">
+                        <img src="{{ asset('images/logofb.png') }}" alt="Facebook" class="hover:scale-110 transition-transform">
+                    </a>
+                    <a href="https://www.instagram.com/mitsuiseminuevosarequipa/" target="_blank">
+                        <img src="{{ asset('images/logoInstagram.png') }}" alt="Instagram" class="hover:scale-110 transition-transform">
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex flex-col text-center space-y-1 text-xs">
+            <div class="flex justify-center items-center space-x-2">
+                <img src="{{ asset('images/phoneLogo.png') }}" alt="Teléfono">
+                <p>(01) 705 0123</p>
+            </div>
+            <div class="flex justify-center items-center space-x-2">
+                <img src="{{ asset('images/wspLogo.png') }}" alt="WhatsApp">
+                <p>+51 1 705 0123</p>
+            </div>
+            <div class="flex justify-center items-center space-x-2">
+                <img src="{{ asset('images/correoLogo.png') }}" alt="Correo">
+                <p>mitsuiseminuevos@mitsuiautomotriz.com</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="border-t border-white mt-2 pt-1 text-center text-xs">
+        <p>2024 Mitsui Seminuevos. Todos los Derechos Reservados.</p>
+    </div>
+</footer>
+-->

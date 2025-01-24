@@ -1,0 +1,84 @@
+<style>
+   header.fi-sidebar-header {
+    background-color: #0075BF !important; /* Azul específico para el header */
+    color: #ffffff !important; /* Texto blanco */
+    height: 64px !important; /* Ajuste de altura si es necesario */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important; /* Sombra opcional */
+    padding: 0 20px !important; /* Espaciado interno opcional */
+}
+
+header.fi-sidebar-header img {
+    filter: brightness(0) invert(1) !important; /* Logo en blanco si es oscuro */
+    height: 40px !important; /* Ajusta el tamaño del logo */
+    width: auto !important;
+}
+
+
+nav.flex.h-16.items-center {
+    background-color: #0075BF !important; /* Fondo azul */
+    color: #ffffff !important; /* Texto blanco */
+    height: 64px !important; /* Ajuste de altura */
+    padding: 0 20px !important; /* Espaciado interno opcional */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important; /* Sombra opcional */
+    border-bottom: 2px solid #005bb5 !important; /* Línea decorativa opcional */
+}
+
+nav.flex.h-16.items-center a {
+    color: #ffffff !important; /* Enlaces en blanco */
+    text-decoration: none !important;
+    font-size: 14px !important; /* Tamaño de fuente para enlaces */
+}
+
+nav.flex.h-16.items-center a:hover {
+    text-decoration: underline !important; /* Subrayado en hover */
+}
+
+nav.flex.h-16.items-center button {
+    background-color: transparent !important; /* Fondo transparente */
+    color: #ffffff !important; /* Íconos y texto en blanco */
+    border: none !important;
+    height: 40px !important; /* Tamaño del botón */
+    width: 40px !important;
+    border-radius: 5px !important; /* Bordes redondeados */
+    transition: background-color 0.3s ease !important; /* Transición suave */
+}
+
+nav.flex.h-16.items-center button:hover {
+    background-color: rgba(255, 255, 255, 0.2) !important; /* Fondo blanco semi-transparente al pasar el cursor */
+}
+
+nav.flex.h-16.items-center img {
+    filter: brightness(0) invert(1) !important; /* Logo en blanco si es oscuro */
+    height: 40px !important; /* Tamaño ajustado del logo */
+    width: auto !important;
+}
+.fi-dropdown-header-label,
+.fi-dropdown-list-item-label {
+    color: #000000 !important; /* Texto en negro */
+    font-weight: bold !important; /* Negrita */
+}
+
+.fi-dropdown-header-icon,
+.fi-dropdown-list-item-icon {
+    color: #000000 !important; /* Íconos en negro */
+}
+
+button.fi-dropdown-list-item {
+    color: #000000 !important; /* Texto en negro */
+    font-weight: bold !important; /* Texto en negrita */
+}
+
+button.fi-dropdown-list-item span {
+    font-weight: bold !important; /* Negrita para el texto del span */
+    color: #000000 !important; /* Asegura el color negro */
+}
+
+button.fi-dropdown-list-item:hover {
+    background-color: rgba(0, 0, 0, 0.1) !important; /* Fondo gris claro al pasar el cursor */
+}
+
+
+</style>
+
+
+
