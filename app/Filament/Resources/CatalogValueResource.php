@@ -182,4 +182,27 @@ class CatalogValueResource extends Resource
             'edit' => Pages\EditCatalogValue::route('/{record}/editar'),
         ];
     }
+
+    // Agregar este nuevo método
+    public static function getNavigationBadge(): ?string
+    {
+        return static::getModel()::count();
+    }
+
+    // Configuración adicional para el formulario de creación
+    public static function getFormActions(): array
+    {
+        return [
+            Forms\Components\Actions\Action::make('saveAndCreateAnother')
+                ->label('Guardar y Crear Otro')
+                ->action(function (Forms\Form $form) {
+                    $form->getResource()::create($form->getState());
+                    
+                    // Redireccionar al formulario de creación
+                    redirect(static::getUrl('create'));
+                })
+                ->color('success')
+                ->icon('heroicon-o-plus-circle'),
+        ];
+    }
 }
