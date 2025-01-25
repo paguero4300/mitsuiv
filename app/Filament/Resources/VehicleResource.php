@@ -44,13 +44,15 @@ class VehicleResource extends Resource
                     Forms\Components\Grid::make(2)->schema([
                         Forms\Components\TextInput::make('plate')
                             ->label('Placa')
-                            ->placeholder('Ingrese la placa del vehículo')
-                            ->required()
-                            ->unique(ignoreRecord: true)
-                            ->maxLength(255)
-                            ->regex('/^[A-Z0-9-]+$/')
-                            ->helperText('La placa debe contener solo letras mayúsculas, números y guiones')
-                            ->prefixIcon('heroicon-o-identification'),
+                            ->placeholder('Formato: ABC-123')
+                            ->required('El campo placa es obligatorio')
+                            ->unique(table: 'vehicles', column: 'plate', ignoreRecord: true)
+                            ->maxLength(7, 'La placa no debe exceder los 7 caracteres')
+                            ->regex('/^[A-Z0-9]{1,3}-[A-Z0-9]{1,3}$/', 'El formato de placa debe ser XXX-XXX')
+                            ->helperText('La placa debe tener el formato XXX-XXX (letras o números separados por guión)')
+                            ->prefixIcon('heroicon-o-identification')
+                            ->formatStateUsing(fn ($state) => strtoupper($state))
+                            ->mask('***-***'),
 
                         Forms\Components\Select::make('brand_id')
                             ->label('Marca')
@@ -60,7 +62,7 @@ class VehicleResource extends Resource
                                 fn($query) =>
                                 $query->whereHas('type', fn($q) => $q->where('name', 'marca'))
                             )
-                            ->required()
+                            ->required('El campo marca es obligatorio')
                             ->placeholder('Seleccione una marca')
                             ->prefixIcon('heroicon-o-building-storefront')
                             ->reactive(),
