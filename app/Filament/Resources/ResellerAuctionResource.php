@@ -196,6 +196,8 @@ class ResellerAuctionResource extends Resource
                             Tables\Columns\TextColumn::make('base_price')
                             ->label('Precio Base')
                             ->money('USD')
+                            ->color('primary')
+                            ->size(TextColumn\TextColumnSize::ExtraSmall)
                              ->weight('bold'),
 
                             Tables\Columns\TextColumn::make('current_price')
