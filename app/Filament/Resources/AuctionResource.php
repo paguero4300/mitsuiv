@@ -41,6 +41,10 @@ use Filament\Infolists\Components\Actions\Action;
 use Filament\Actions\Action as FilamentAction;
 use Illuminate\Support\HtmlString;
 use BezhanSalleh\FilamentShield\Contracts\HasShieldPermissions;
+use Filament\Tables\Columns\Layout\Stack;
+use Filament\Notifications\Notification;
+use Illuminate\Database\Eloquent\Collection;
+use Closure;
 
 
 class AuctionResource extends Resource
@@ -62,135 +66,166 @@ class AuctionResource extends Resource
     {
         return $form
             ->schema([
-                // Galería de imágenes en la parte superior
-                Forms\Components\Section::make('Galería del Vehículo')
-                    ->description('Imágenes del vehículo seleccionado')
-                    ->icon('heroicon-o-camera')
-                    ->collapsible()
-                    ->visible(fn ($livewire) => !($livewire instanceof Pages\CreateAuction || $livewire instanceof Pages\EditAuction))
+                Forms\Components\Section::make('Nueva Subasta')
+                    ->description('Complete los campos requeridos para crear la subasta')
+                    ->icon('heroicon-o-banknotes')
                     ->schema([
-                        ViewField::make('vehicle_images')
-                            ->view('filament.components.vehicle-gallery')
-                            ->visible(fn($get) => $get('vehicle_id') !== null)
+                        Forms\Components\Placeholder::make('current_time')
+                            ->label('Fecha y Hora Actual del Sistema')
+                            ->content(function () {
+                                return view('filament.components.current-time', [
+                                    'time' => now()->timezone('America/Lima')->format('d/m/Y H:i:s')
+                                ]);
+                            })
                             ->columnSpanFull(),
-                    ])
-                    ->columnSpanFull(),
 
-                Grid::make(2)->schema([
-                    // Información básica de la subasta
-                    Forms\Components\Section::make('Información de la Subasta')
-                        ->description('Ingrese los detalles básicos de la subasta')
-                        ->icon('heroicon-o-clipboard-document-list')
-                        ->schema([
-                            Forms\Components\Select::make('vehicle_id')
-                                ->label('Vehículo')
-                                ->relationship('vehicle', 'plate')
-                                ->required()
-                                ->searchable()
-                                ->preload()
-                                ->live()
-                                ->prefixIcon('heroicon-o-truck')
-                                ->afterStateUpdated(fn($state, $set) => $set('vehicle_images', $state)),
+                        Forms\Components\Select::make('vehicle_id')
+                            ->label('Vehículo')
+                            ->relationship('vehicle', 'plate')
+                            ->required()
+                            ->searchable()
+                            ->preload()
+                            ->helperText('Seleccione el vehículo que desea subastar')
+                            ->columnSpanFull(),
 
-                            Forms\Components\Hidden::make('appraiser_id')
-                                ->default(fn() => Auth::id()),
+                        Forms\Components\Grid::make(2)
+                            ->schema([
+                                Forms\Components\Card::make()
+                                    ->schema([
+                                        Forms\Components\DateTimePicker::make('start_date')
+                                            ->label('Fecha y Hora de Inicio')
+                                            ->required()
+                                            ->native(false)
+                                            ->timezone('America/Lima')
+                                            ->format('Y-m-d H:i')
+                                            ->displayFormat('d/m/Y H:i')
+                                            ->firstDayOfWeek(1)
+                                            ->minDate(now()->timezone('America/Lima')->format('Y-m-d'))
+                                            ->helperText('La fecha y hora de inicio debe ser igual o posterior a la hora actual')
+                                            ->live()
+                                            ->rules([
+                                                'required',
+                                                'date',
+                                                'after_or_equal:' . now()->timezone('America/Lima')->format('Y-m-d H:i'),
+                                            ]),
 
-                            Forms\Components\Select::make('status_id')
-                                ->label('Estado de Subasta')
-                                ->relationship('status', 'name')
-                                ->default(fn() => \App\Models\AuctionStatus::where('name', 'Sin Oferta')->first()->id)
-                                ->disabled()
-                                ->hidden()
-                                ->dehydrated(),
-                        ])
-                        ->columns(1)
-                        ->collapsible(),
-
-                    // Detalles de tiempo y precio
-                    Forms\Components\Section::make('Detalles de Tiempo y Precio')
-                        ->description('Configure la duración y los precios de la subasta')
-                        ->icon('heroicon-o-clock')
-                        ->schema([
-                            Forms\Components\Card::make()
-                                ->schema([
-                                    Forms\Components\DateTimePicker::make('start_date')
-                                        ->label('Fecha de Inicio')
-                                        ->default(now()->addHour()->startOfHour())
-                                        ->minDate(now())
-                                        ->required()
-                                        ->live()
-                                        ->prefixIcon('heroicon-o-calendar')
-                                        ->displayFormat('d/m/Y H:i')
-                                        ->afterStateUpdated(function ($state, callable $set) {
-                                            if ($state) {
-                                                $duration = (int) request()->input('data.duration_hours', 0);
-                                                if ($duration > 0) {
-                                                    $endDate = Carbon::parse($state)->addHours((int) $duration);
-                                                    $set('end_date', $endDate);
+                                        Forms\Components\DateTimePicker::make('end_date')
+                                            ->label('Fecha y Hora de Fin')
+                                            ->required()
+                                            ->native(false)
+                                            ->timezone('America/Lima')
+                                            ->format('Y-m-d H:i')
+                                            ->displayFormat('d/m/Y H:i')
+                                            ->firstDayOfWeek(1)
+                                            ->minDate(now()->timezone('America/Lima')->format('Y-m-d'))
+                                            ->helperText('La hora de fin debe ser mayor a la hora de inicio')
+                                            ->live()
+                                            ->rules([
+                                                'required',
+                                                'date',
+                                                function ($get) {
+                                                    return function (string $attribute, $value, Closure $fail) use ($get) {
+                                                        $startDate = Carbon::parse($get('start_date'))->timezone('America/Lima');
+                                                        $endDate = Carbon::parse($value)->timezone('America/Lima');
+                                                        
+                                                        if ($endDate->format('Y-m-d') === $startDate->format('Y-m-d')) {
+                                                            if ($endDate->format('H:i') <= $startDate->format('H:i')) {
+                                                                $fail("La hora de fin debe ser mayor a la hora de inicio ({$startDate->format('H:i')})");
+                                                            }
+                                                        } elseif ($endDate < $startDate) {
+                                                            $fail("La fecha de fin no puede ser anterior a la fecha de inicio");
+                                                        }
+                                                    };
                                                 }
-                                            }
-                                        }),
+                                            ]),
+                                    ]),
 
-                                    Forms\Components\Select::make('duration_hours')
-                                        ->label('Duración')
-                                        ->options([
-                                            1 => '1 hora',
-                                            2 => '2 horas',
-                                            3 => '3 horas',
-                                            6 => '6 horas',
-                                            12 => '12 horas',
-                                            24 => '24 horas (1 día)',
-                                            48 => '48 horas (2 días)',
-                                            72 => '72 horas (3 días)',
-                                        ])
-                                        ->default(24)
-                                        ->required()
-                                        ->live()
-                                        ->prefixIcon('heroicon-o-clock')
-                                        ->searchable()
-                                        ->afterStateUpdated(function ($state, callable $set, $get) {
-                                            $startDate = $get('start_date');
-                                            if ($startDate && $state) {
-                                                $endDate = Carbon::parse($startDate)->addHours((int) $state);
-                                                $set('end_date', $endDate);
-                                            }
-                                        }),
-                                ])
-                                ->columns(2),
+                                Forms\Components\Card::make()
+                                    ->schema([
+                                        Forms\Components\TextInput::make('base_price')
+                                            ->label('Precio Base')
+                                            ->required()
+                                            ->numeric()
+                                            ->prefix('$')
+                                            ->minValue(1)
+                                            ->maxValue(999999999)
+                                            ->step(0.01)
+                                            ->inputMode('decimal')
+                                            ->helperText('Ingrese el precio base de la subasta (mínimo $1)')
+                                            ->columnSpanFull(),
 
-                            Forms\Components\Card::make()
-                                ->schema([
-                                    Forms\Components\DateTimePicker::make('end_date')
-                                        ->label('Fecha de Finalización')
-                                        ->required()
-                                        ->rules([
-                                            'required',
-                                            'date',
-                                            'after_or_equal:start_date'
-                                        ])
-                                        ->disabled()
-                                        ->dehydrated()
-                                        ->prefixIcon('heroicon-o-calendar-days')
-                                        ->displayFormat('d/m/Y H:i'),
+                                        Forms\Components\Placeholder::make('duration_preview')
+                                            ->label('Duración de la Subasta')
+                                            ->content(function ($get) {
+                                                $startDate = $get('start_date');
+                                                $endDate = $get('end_date');
 
-                                    Forms\Components\TextInput::make('base_price')
-                                        ->label('Precio Base')
-                                        ->required()
-                                        ->prefix('$')
-                                        ->prefixIcon('heroicon-o-banknotes')
-                                        ->numeric()
-                                        ->minValue(1)
-                                        ->step(1)
-                                        ->inputMode('decimal')
-                                        ->mask('999999999')
-                                        ->stripCharacters(',')
-                                        ->live(onBlur: true),
-                                ])
-                                ->columns(2),
-                        ])
-                        ->collapsible(),
-                ]),
-            ]);
+                                                if (!$startDate || !$endDate) {
+                                                    return view('filament.components.duration-preview', [
+                                                        'message' => 'Seleccione las fechas de inicio y fin para ver la duración',
+                                                        'duration' => null
+                                                    ]);
+                                                }
+
+                                                try {
+                                                    $start = Carbon::parse($startDate)->timezone('America/Lima');
+                                                    $end = Carbon::parse($endDate)->timezone('America/Lima');
+
+                                                    if ($end <= $start) {
+                                                        return view('filament.components.duration-preview', [
+                                                            'message' => 'La fecha de fin debe ser posterior a la fecha de inicio',
+                                                            'duration' => null
+                                                        ]);
+                                                    }
+
+                                                    $interval = $start->diff($end);
+                                                    $durationParts = [];
+
+                                                    if ($interval->d > 0) {
+                                                        $durationParts[] = "{$interval->d} día(s)";
+                                                    }
+                                                    if ($interval->h > 0) {
+                                                        $durationParts[] = "{$interval->h} hora(s)";
+                                                    }
+                                                    if ($interval->i > 0) {
+                                                        $durationParts[] = "{$interval->i} minuto(s)";
+                                                    }
+
+                                                    if (empty($durationParts)) {
+                                                        $durationParts[] = "menos de 1 minuto";
+                                                    }
+
+                                                    return view('filament.components.duration-preview', [
+                                                        'message' => 'La subasta durará:',
+                                                        'duration' => implode(', ', $durationParts)
+                                                    ]);
+                                                } catch (\InvalidArgumentException $e) {
+                                                    logger()->error('Error al calcular duración de subasta: ' . $e->getMessage());
+                                                    return view('filament.components.duration-preview', [
+                                                        'message' => 'Error al calcular la duración',
+                                                        'duration' => null
+                                                    ]);
+                                                }
+                                            })
+                                            ->columnSpanFull(),
+                                    ]),
+                            ]),
+
+                        Forms\Components\Hidden::make('appraiser_id')
+                            ->default(fn() => Auth::id()),
+
+                        Forms\Components\Hidden::make('status_id')
+                            ->default(fn() => \App\Models\AuctionStatus::where('slug', 'sin-oferta')->first()?->id ?? 2),
+
+                        Forms\Components\Hidden::make('duration_hours')
+                            ->default(fn (Forms\Get $get): int => 
+                                Carbon::parse($get('end_date'))->diffInHours(Carbon::parse($get('start_date')))
+                            ),
+                    ])
+                    ->columns(2)
+                    ->columnSpanFull(),
+            ])
+            ->statePath('data');
     }
 
 
@@ -203,18 +238,97 @@ class AuctionResource extends Resource
                 ->schema([
                     \Filament\Infolists\Components\Grid::make(4)
                         ->schema([
-                            TextEntry::make('remaining_time')
-                                ->label('Tiempo Restante')
+                            TextEntry::make('start_countdown')
+                                ->label('Inicio')
                                 ->state(function (Auction $record) {
-                                    if ($record->end_date->isPast()) {
-                                        return 'Subasta finalizada';
+                                    $now = now()->timezone('America/Lima');
+                                    $start = Carbon::parse($record->start_date)->timezone('America/Lima');
+
+                                    if ($start->lte($now)) {
+                                        return null;
                                     }
-                                    return $record->end_date->diffForHumans();
+
+                                    $interval = $now->diff($start);
+                                    $parts = [];
+
+                                    if ($interval->d > 0) {
+                                        $parts[] = "{$interval->d}d";
+                                    }
+                                    if ($interval->h > 0) {
+                                        $parts[] = "{$interval->h}h";
+                                    }
+                                    if ($interval->i > 0) {
+                                        $parts[] = "{$interval->i}m";
+                                    }
+
+                                    return "Inicia en: " . (empty($parts) ? "< 1m" : implode(' ', $parts));
                                 })
                                 ->badge()
                                 ->color('warning')
-                                ->weight('bold'),
-                                
+                                ->weight('bold')
+                                ->visible(fn (Auction $record) => Carbon::parse($record->start_date)->gt(now())),
+
+                            TextEntry::make('remaining_time')
+                                ->label('Tiempo Restante')
+                                ->state(function (Auction $record) {
+                                    $now = now()->timezone('America/Lima');
+                                    $start = Carbon::parse($record->start_date)->timezone('America/Lima');
+                                    $end = Carbon::parse($record->end_date)->timezone('America/Lima');
+
+                                    // Si no ha iniciado, no mostramos nada
+                                    if ($start->gt($now)) {
+                                        return null;
+                                    }
+
+                                    // Si ya finalizó
+                                    if ($end->isPast()) {
+                                        return 'Subasta finalizada';
+                                    }
+
+                                    // Si está en curso, mostramos tiempo restante
+                                    $interval = $now->diff($end);
+                                    $parts = [];
+
+                                    if ($interval->d > 0) {
+                                        $parts[] = "{$interval->d}d";
+                                    }
+                                    if ($interval->h > 0) {
+                                        $parts[] = "{$interval->h}h";
+                                    }
+                                    if ($interval->i > 0) {
+                                        $parts[] = "{$interval->i}m";
+                                    }
+
+                                    return empty($parts) ? "< 1m" : implode(' ', $parts);
+                                })
+                                ->badge()
+                                ->color(function (Auction $record) {
+                                    $now = now()->timezone('America/Lima');
+                                    $start = Carbon::parse($record->start_date)->timezone('America/Lima');
+                                    $end = Carbon::parse($record->end_date)->timezone('America/Lima');
+
+                                    if ($start->gt($now) || $end->isPast()) {
+                                        return 'gray';
+                                    }
+
+                                    $hoursRemaining = $now->diffInHours($end, false);
+                                    
+                                    if ($hoursRemaining <= 1) {
+                                        return 'danger';
+                                    } elseif ($hoursRemaining <= 6) {
+                                        return 'warning';
+                                    } elseif ($hoursRemaining <= 24) {
+                                        return 'info';
+                                    } else {
+                                        return 'success';
+                                    }
+                                })
+                                ->weight('bold')
+                                ->visible(fn (Auction $record) => 
+                                    Carbon::parse($record->start_date)->lte(now()) && 
+                                    Carbon::parse($record->end_date)->gt(now())
+                                ),
+
                             TextEntry::make('base_price')
                                 ->label('Precio Base')
                                 ->prefix('US$')
@@ -672,6 +786,7 @@ class AuctionResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->poll('10s')
             ->modifyQueryUsing(fn (Builder $query) => $query->with([
                 'vehicle',
                 'vehicle.brand',
@@ -680,167 +795,231 @@ class AuctionResource extends Resource
                 'status'
             ]))
             ->columns([
-                Tables\Columns\ImageColumn::make('vehicle.images')
-                    ->label('')
-                    ->height(40)
-                    ->width(40)
-                    ->extraImgAttributes(['class' => 'rounded-lg'])
-                    ->defaultImageUrl(url('/images/vehiculo.png'))
-                    ->state(fn($record) => optional($record->vehicle->images()->where('is_main', true)->first())->path)
-                    ->simpleLightbox(),
+                Stack::make([
+                    Tables\Columns\ImageColumn::make('vehicle.images')
+                        ->height(200)
+                        ->width('100%')
+                        ->defaultImageUrl(url('/images/vehiculo.png'))
+                        ->state(fn($record) => optional($record->vehicle->images()->where('is_main', true)->first())->path)
+                        ->alignment('center')
+                        ->extraImgAttributes([
+                            'class' => 'w-full h-[200px] object-cover rounded-t-xl',
+                        ]),
 
-                Tables\Columns\TextColumn::make('start_date')
-                    ->label('Fecha')
-                    ->dateTime('d/m/Y')
-                    ->size('sm'),
-
-                Tables\Columns\TextColumn::make('vehicle.plate')
-                    ->label('Placa')
-                    ->searchable()
-                    ->size('sm'),
-
-                Tables\Columns\TextColumn::make('vehicle.brand.value')
-                    ->label('Marca')
-                    ->searchable()
-                    ->size('sm')
-                    ->limit(15),
-
-                Tables\Columns\TextColumn::make('vehicle.model.value')
-                    ->label('Modelo')
-                    ->searchable()
-                    ->size('sm')
-                    ->limit(15),
-
-                Tables\Columns\TextColumn::make('vehicle.year_made')
-                    ->label('Año')
-                    ->size('sm'),
-
-                Tables\Columns\TextColumn::make('base_price')
-                    ->label('Base')
-                    ->money('USD')
-                    ->size('sm'),
-
-                Tables\Columns\TextColumn::make('current_price')
-                    ->label('Actual')
-                    ->money('USD')
-                    ->size('sm'),
-
-                Tables\Columns\TextColumn::make('end_date')
-                    ->label('T.Rest')
-                    ->badge()
-                    ->formatStateUsing(function (Auction $record) {
-                        if ($record->end_date->isPast()) {
-                            return 'Fin';
-                        }
-
-                        $now = now();
-                        $remaining = $now->diff($record->end_date);
-                        
-                        if ($remaining->days > 0) {
-                            return "{$remaining->days}d {$remaining->h}h";
-                        } elseif ($remaining->h > 0) {
-                            return "{$remaining->h}h {$remaining->i}m";
-                        } else {
-                            return "{$remaining->i}m";
-                        }
-                    })
-                    ->icon(function (Auction $record) {
-                        if ($record->end_date->isPast()) {
-                            return 'heroicon-o-x-circle';
-                        }
-                        return 'heroicon-o-clock';
-                    })
-                    ->color(function (Auction $record) {
-                        if ($record->end_date->isPast()) {
-                            return 'danger';
-                        }
-                        
-                        $hoursRemaining = now()->diffInHours($record->end_date, false);
-                        
-                        if ($hoursRemaining <= 1) {
-                            return 'danger';
-                        } elseif ($hoursRemaining <= 6) {
-                            return 'warning';
-                        } elseif ($hoursRemaining <= 24) {
-                            return 'info';
-                        } else {
-                            return 'success';
-                        }
-                    })
-                    ->alignCenter()
-                    ->size('sm'),
-
-                Tables\Columns\BadgeColumn::make('status.name')
-                    ->label('Estado')
-                    ->size('sm')
-                    ->colors([
-                        'danger' => 'Sin Oferta',
-                        'warning' => 'En Proceso',
-                        'success' => 'Finalizada',
-                    ]),
-            ])
-            ->filters([
-                // Agrupamos los filtros por categorías
-                \Filament\Tables\Filters\SelectFilter::make('status_id')
-                    ->label('Estado')
-                    ->multiple()
-                    ->preload()
-                    ->options(fn() => \App\Models\AuctionStatus::pluck('name', 'id'))
-                    ->indicator('Estado'),
-
-                \Filament\Tables\Filters\TernaryFilter::make('active')
-                    ->label('Subastas Activas')
-                    ->queries(
-                        true: fn (Builder $query) => $query->where('end_date', '>', now()),
-                        false: fn (Builder $query) => $query->where('end_date', '<=', now()),
-                    )
-                    ->trueLabel('Activas')
-                    ->falseLabel('Finalizadas')
-                    ->native(false),
-
-                Filter::make('price_range')
-                    ->form([
-                        Forms\Components\Grid::make(2)
-                            ->schema([
-                                TextInput::make('price_from')
-                                    ->label('Precio Mínimo')
-                                    ->numeric()
-                                    ->prefix('$')
-                                    ->placeholder('0'),
-                                TextInput::make('price_to')
-                                    ->label('Precio Máximo')
-                                    ->numeric()
-                                    ->prefix('$')
-                                    ->placeholder('100,000'),
-                            ])
+                    Tables\Columns\Layout\Grid::make([
+                        'default' => 2,
+                        'sm' => 2,
                     ])
-                    ->query(function (Builder $query, array $data): Builder {
-                        return $query
-                            ->when(
-                                $data['price_from'],
-                                fn(Builder $query, $price): Builder => $query->where('base_price', '>=', $price),
-                            )
-                            ->when(
-                                $data['price_to'],
-                                fn(Builder $query, $price): Builder => $query->where('base_price', '<=', $price),
-                            );
+                    ->schema([
+                        Tables\Columns\TextColumn::make('start_date')
+                            ->label('Fecha')
+                            ->formatStateUsing(function (Auction $record): string {
+                                $start = Carbon::parse($record->start_date)->timezone('America/Lima');
+                                $now = now()->timezone('America/Lima');
+                                
+                                $dateStr = $start->format('d/m/Y');
+                                
+                                if ($start->gt($now)) {
+                                    $interval = $now->diff($start);
+                                    $parts = [];
+                                    
+                                    if ($interval->d > 0) {
+                                        $parts[] = "{$interval->d}d";
+                                    }
+                                    if ($interval->h > 0) {
+                                        $parts[] = "{$interval->h}h";
+                                    }
+                                    if ($interval->i > 0) {
+                                        $parts[] = "{$interval->i}m";
+                                    }
+                                    if ($interval->s > 0) {
+                                        $parts[] = "{$interval->s}s";
+                                    }
+                                    
+                                    $timeLeft = empty($parts) ? "< 1s" : implode(' ', $parts);
+                                    return "{$dateStr} (Inicia en: {$timeLeft})";
+                                }
+                                
+                                return $dateStr;
+                            })
+                            ->badge()
+                            ->color(function (Auction $record) {
+                                $start = Carbon::parse($record->start_date)->timezone('America/Lima');
+                                $now = now()->timezone('America/Lima');
+                                
+                                if ($start->gt($now)) {
+                                    $hoursRemaining = $now->diffInHours($start, false);
+                                    
+                                    if ($hoursRemaining <= 1) {
+                                        return 'danger';
+                                    } elseif ($hoursRemaining <= 6) {
+                                        return 'warning';
+                                    } elseif ($hoursRemaining <= 24) {
+                                        return 'info';
+                                    } else {
+                                        return 'success';
+                                    }
+                                }
+                                
+                                return null;
+                            })
+                            ->extraAttributes([
+                                'class' => 'text-gray-600 font-medium',
+                            ]),
+                    ])
+                    ->extraAttributes([
+                        'class' => 'gap-2 items-center',
+                    ]),
+
+                    Tables\Columns\Layout\Grid::make()
+                        ->schema([
+                            Tables\Columns\TextColumn::make('vehicle.plate')
+                                ->label('Placa')
+                                ->formatStateUsing(fn ($state): string => "Placa: {$state}")
+                                ->extraAttributes([
+                                    'class' => 'text-lg font-bold text-primary-600',
+                                ]),
+
+                            Tables\Columns\TextColumn::make('vehicle.brand.value')
+                                ->label('Marca')
+                                ->formatStateUsing(fn ($state): string => "Marca: {$state}")
+                                ->extraAttributes([
+                                    'class' => 'text-gray-600',
+                                ]),
+
+                            Tables\Columns\TextColumn::make('vehicle.model.value')
+                                ->label('Modelo')
+                                ->formatStateUsing(fn ($state): string => "Modelo: {$state}")
+                                ->extraAttributes([
+                                    'class' => 'text-gray-800',
+                                ]),
+
+                            Tables\Columns\TextColumn::make('vehicle.year_made')
+                                ->label('Año')
+                                ->formatStateUsing(fn ($state): string => "Año: {$state}")
+                                ->extraAttributes([
+                                    'class' => 'text-gray-600',
+                                ]),
+
+                            Tables\Columns\TextColumn::make('base_price')
+                                ->label('Base')
+                                ->formatStateUsing(fn ($state): string => "Base: $ " . number_format($state ?? 0, 2))
+                                ->extraAttributes([
+                                    'class' => 'text-success-600 font-bold',
+                                ]),
+
+                            Tables\Columns\TextColumn::make('current_price')
+                                ->label('Actual')
+                                ->formatStateUsing(fn ($state): string => "Actual: $ " . number_format($state ?? 0, 2))
+                                ->extraAttributes([
+                                    'class' => 'text-primary-600 font-bold',
+                                ]),
+
+                            Tables\Columns\TextColumn::make('end_date')
+                                ->formatStateUsing(function (Auction $record) {
+                                    $now = now()->timezone('America/Lima');
+                                    $startDate = Carbon::parse($record->start_date)->timezone('America/Lima');
+                                    $endDate = Carbon::parse($record->end_date)->timezone('America/Lima');
+
+                                    if ($startDate->gt($now)) {
+                                        return null;
+                                    }
+
+                                    if ($endDate->isPast()) {
+                                        return "Tiempo: Finalizada";
+                                    }
+
+                                    $remaining = $now->diff($endDate);
+                                    
+                                    if ($remaining->days > 0) {
+                                        return "Tiempo: {$remaining->days}d {$remaining->h}h {$remaining->i}m {$remaining->s}s";
+                                    } elseif ($remaining->h > 0) {
+                                        return "Tiempo: {$remaining->h}h {$remaining->i}m {$remaining->s}s";
+                                    } elseif ($remaining->i > 0) {
+                                        return "Tiempo: {$remaining->i}m {$remaining->s}s";
+                                    } else {
+                                        return "Tiempo: {$remaining->s}s";
+                                    }
+                                })
+                                ->color(function (Auction $record) {
+                                    $now = now()->timezone('America/Lima');
+                                    $startDate = Carbon::parse($record->start_date)->timezone('America/Lima');
+                                    $endDate = Carbon::parse($record->end_date)->timezone('America/Lima');
+
+                                    if ($startDate->gt($now) || $endDate->isPast()) {
+                                        return null;
+                                    }
+                                    
+                                    $hoursRemaining = $now->diffInHours($endDate, false);
+                                    
+                                    if ($hoursRemaining <= 1) {
+                                        return 'danger';
+                                    } elseif ($hoursRemaining <= 6) {
+                                        return 'warning';
+                                    } elseif ($hoursRemaining <= 24) {
+                                        return 'info';
+                                    } else {
+                                        return 'success';
+                                    }
+                                })
+                                ->extraAttributes([
+                                    'class' => 'text-gray-600 font-medium',
+                                ]),
+
+                            Tables\Columns\TextColumn::make('status.name')
+                                ->formatStateUsing(fn (string $state): string => "Estado: {$state}")
+                                ->badge()
+                                ->color(fn (string $state): string => match ($state) {
+                                    'Sin Oferta' => 'danger',
+                                    'En Proceso' => 'warning',
+                                    'Finalizada' => 'success',
+                                    default => 'gray'
+                                })
+                                ->extraAttributes([
+                                    'class' => 'text-sm',
+                                ]),
+                        ])
+                        ->columns([
+                            'default' => 1,
+                            'sm' => 1,
+                            'md' => 2,
+                        ])
+                        ->extraAttributes([
+                            'class' => 'gap-y-2 p-4',
+                        ]),
+                ])
+                ->space(3)
+                ->extraAttributes([
+                    'class' => 'rounded-xl shadow-sm',
+                ]),
+            ])
+            ->contentGrid([
+                'default' => 1,
+                'sm' => 1,
+                'md' => 2,
+                'xl' => 3,
+            ])
+            ->bulkActions([])
+            ->filters([
+                SelectFilter::make('appraiser_id')
+                    ->label('Tasador')
+                    ->placeholder('Tasador...')
+                    ->options(function () {
+                        return \App\Models\User::query()
+                            ->join('model_has_roles', function ($join) {
+                                $join->on('users.id', '=', 'model_has_roles.model_id')
+                                    ->where('model_has_roles.model_type', '=', 'App\\Models\\User');
+                            })
+                            ->join('roles', 'model_has_roles.role_id', '=', 'roles.id')
+                            ->where('roles.name', '=', 'tasador')
+                            ->pluck('users.name', 'users.id');
                     })
-                    ->indicateUsing(function (array $data): array {
-                        $indicators = [];
-                        if ($data['price_from'] ?? null) {
-                            $indicators[] = Indicator::make('Precio mínimo: $' . number_format($data['price_from']))
-                                ->removeField('price_from');
-                        }
-                        if ($data['price_to'] ?? null) {
-                            $indicators[] = Indicator::make('Precio máximo: $' . number_format($data['price_to']))
-                                ->removeField('price_to');
-                        }
-                        return $indicators;
-                    }),
+                    ->searchable()
+                    ->preload(),
 
                 Filter::make('date_range')
                     ->form([
-                        Forms\Components\Grid::make(2)
+                        Grid::make(2)
                             ->schema([
                                 DatePicker::make('created_from')
                                     ->label('Desde')
@@ -850,9 +1029,8 @@ class AuctionResource extends Resource
                                     ->label('Hasta')
                                     ->placeholder('Seleccione fecha')
                                     ->closeOnDateSelection(),
-                            ])
+                            ]),
                     ])
-                    ->columnSpan(2)
                     ->query(function (Builder $query, array $data): Builder {
                         return $query
                             ->when(
@@ -875,12 +1053,32 @@ class AuctionResource extends Resource
                         return $indicators;
                     }),
 
-                SelectFilter::make('vehicle_details')
+                SelectFilter::make('status_id')
+                    ->multiple()
+                    ->label('Estado')
+                    ->placeholder('Estado...')
+                    ->preload()
+                    ->options(fn() => \App\Models\AuctionStatus::pluck('name', 'id'))
+                    ->indicator('Estado'),
+
+                TernaryFilter::make('active')
+                    ->label('Subastas')
+                    ->placeholder('Subastas...')
+                    ->queries(
+                        true: fn (Builder $query) => $query->where('end_date', '>', now()),
+                        false: fn (Builder $query) => $query->where('end_date', '<=', now()),
+                    )
+                    ->trueLabel('Activas')
+                    ->falseLabel('Finalizadas')
+                    ->native(false),
+
+                Filter::make('vehicle_details')
                     ->form([
-                        Forms\Components\Grid::make(2)
+                        Grid::make(2)
                             ->schema([
                                 Select::make('brand_id')
                                     ->label('Marca')
+                                    ->placeholder('Marca...')
                                     ->searchable()
                                     ->preload()
                                     ->options(fn() => \App\Models\CatalogValue::query()
@@ -891,6 +1089,7 @@ class AuctionResource extends Resource
                                     ->reactive(),
                                 Select::make('model_id')
                                     ->label('Modelo')
+                                    ->placeholder('Modelo...')
                                     ->searchable()
                                     ->preload()
                                     ->options(function (callable $get) {
@@ -902,14 +1101,9 @@ class AuctionResource extends Resource
                                             : [];
                                     })
                                     ->reactive(),
-                                TextInput::make('year_made')
-                                    ->label('Año')
-                                    ->numeric()
-                                    ->minValue(1900)
-                                    ->maxValue(date('Y'))
-                                    ->placeholder('Ej: 2020'),
                                 Select::make('location_id')
                                     ->label('Ubicación')
+                                    ->placeholder('Ubicación...')
                                     ->searchable()
                                     ->preload()
                                     ->options(fn() => \App\Models\CatalogValue::query()
@@ -917,7 +1111,13 @@ class AuctionResource extends Resource
                                         ->where('catalog_types.name', 'ubicacion')
                                         ->where('catalog_values.active', true)
                                         ->pluck('catalog_values.value', 'catalog_values.id')),
-                            ])
+                                TextInput::make('year_made')
+                                    ->label('Año')
+                                    ->numeric()
+                                    ->minValue(1900)
+                                    ->maxValue(date('Y'))
+                                    ->placeholder('Ej: 2020'),
+                            ]),
                     ])
                     ->query(function (Builder $query, array $data): Builder {
                         return $query->whereHas('vehicle', function (Builder $query) use ($data) {
@@ -930,7 +1130,6 @@ class AuctionResource extends Resource
                     })
                     ->indicateUsing(function (array $data): array {
                         $indicators = [];
-                        
                         if ($brandName = \App\Models\CatalogValue::find($data['brand_id'] ?? null)?->value) {
                             $indicators[] = Indicator::make("Marca: {$brandName}");
                         }
@@ -943,34 +1142,70 @@ class AuctionResource extends Resource
                         if ($locationName = \App\Models\CatalogValue::find($data['location_id'] ?? null)?->value) {
                             $indicators[] = Indicator::make("Ubicación: {$locationName}");
                         }
-                        
+                        return $indicators;
+                    }),
+
+                Filter::make('price_range')
+                    ->form([
+                        Grid::make(2)
+                            ->schema([
+                                TextInput::make('price_from')
+                                    ->label('Precio Mínimo')
+                                    ->numeric()
+                                    ->prefix('$')
+                                    ->placeholder('0'),
+                                TextInput::make('price_to')
+                                    ->label('Precio Máximo')
+                                    ->numeric()
+                                    ->prefix('$')
+                                    ->placeholder('100,000'),
+                            ]),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        return $query
+                            ->when(
+                                $data['price_from'],
+                                fn(Builder $query, $price): Builder => $query->where('base_price', '>=', $price),
+                            )
+                            ->when(
+                                $data['price_to'],
+                                fn(Builder $query, $price): Builder => $query->where('base_price', '<=', $price),
+                            );
+                    })
+                    ->indicateUsing(function (array $data): array {
+                        $indicators = [];
+                        if ($data['price_from'] ?? null) {
+                            $indicators[] = Indicator::make('Precio mínimo: $' . number_format($data['price_from']));
+                        }
+                        if ($data['price_to'] ?? null) {
+                            $indicators[] = Indicator::make('Precio máximo: $' . number_format($data['price_to']));
+                        }
                         return $indicators;
                     }),
             ], layout: FiltersLayout::Modal)
-            ->filtersFormColumns(3)
+            ->filtersFormColumns(2)
             ->filtersTriggerAction(
                 fn ($action) => $action
                     ->button()
                     ->label('Filtros')
                     ->icon('heroicon-m-funnel')
+                    ->size('sm')
+                    ->color('gray')
             )
 
             ->actions([
-                /*
-                Tables\Actions\EditAction::make()
-                    ->iconButton(),
-                */
                 Tables\Actions\ViewAction::make()
                     ->url(fn(Auction $record): string => static::getUrl('view', ['record' => $record]))
                     ->icon('heroicon-o-magnifying-glass'),
 
-                Tables\Actions\EditAction::make(),
+                Tables\Actions\EditAction::make()
+                    ->hidden(fn (Model $record): bool => $record->appraiser_id !== Auth::id()),
 
+                Tables\Actions\DeleteAction::make()
+                    ->hidden(fn (Model $record): bool => $record->appraiser_id !== Auth::id()),
             ])
             ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
-                ]),
+               
             ])
             ->defaultSort('start_date', 'desc')
             ->striped();

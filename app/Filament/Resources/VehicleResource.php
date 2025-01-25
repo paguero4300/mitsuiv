@@ -15,6 +15,8 @@ use Illuminate\Support\Facades\Storage;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\Log;
 use Filament\Forms\Components\Section;
+use Filament\Tables\Columns\Layout\Stack;
+use Filament\Support\Enums\Alignment;
 
 class VehicleResource extends Resource
 {
@@ -477,62 +479,64 @@ class VehicleResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->contentGrid([
+                'md' => 2,
+                'lg' => 3,
+                'xl' => 4,
+            ])
             ->columns([
-                Tables\Columns\TextColumn::make('plate')
-                    ->label('Placa')
-                    ->searchable(),
+                Stack::make([
+                    Tables\Columns\TextColumn::make('plate')
+                        ->formatStateUsing(function ($state, $record) {
+                            return "
+                                <div class='car-card'>
+                                    <div class='plate'>
+                                        <div class='plate-label' style='color: #4263eb;'>Placa</div>
+                                        <div class='plate-number' style='font-size: 1.5rem; font-weight: 700; color: #1f2937;'>{$state}</div>
+                                    </div>
+                                    
+                                    <div class='car-details' style='margin-top: 1.25rem;'>
+                                        <div style='display: grid; grid-template-columns: 100px 1fr; gap: 0.75rem; margin-bottom: 0.5rem;'>
+                                            <span style='color: #6b7280; font-weight: 500;'>Marca:</span>
+                                            <span style='color: #111827; font-weight: 500;'>{$record->brand->value}</span>
+                                        </div>
+                                        
+                                        <div style='display: grid; grid-template-columns: 100px 1fr; gap: 0.75rem; margin-bottom: 0.5rem;'>
+                                            <span style='color: #6b7280; font-weight: 500;'>Modelo:</span>
+                                            <span style='color: #111827; font-weight: 500;'>{$record->model->value}</span>
+                                        </div>
+                                        
+                                        <div style='display: grid; grid-template-columns: 100px 1fr; gap: 0.75rem; margin-bottom: 0.5rem;'>
+                                            <span style='color: #6b7280; font-weight: 500;'>Año:</span>
+                                            <span style='color: #111827; font-weight: 500;'>{$record->year_made}</span>
+                                        </div>
+                                        
+                                        <div style='display: grid; grid-template-columns: 100px 1fr; gap: 0.75rem; margin-bottom: 0.5rem;'>
+                                            <span style='color: #6b7280; font-weight: 500;'>Km:</span>
+                                            <span style='color: #111827; font-weight: 500;'>{$record->mileage}</span>
+                                        </div>
+                                        
+                                        <div style='display: grid; grid-template-columns: 100px 1fr; gap: 0.75rem; margin-bottom: 0.5rem;'>
+                                            <span style='color: #6b7280; font-weight: 500;'>Color:</span>
+                                            <span style='color: #111827; font-weight: 500;'>{$record->color->value}</span>
+                                        </div>
+                                    </div>
 
-                Tables\Columns\TextColumn::make('brand.value')
-                    ->label('Marca')
-                    ->sortable()
-                    ->searchable(),
-
-                Tables\Columns\TextColumn::make('model.value')
-                    ->label('Modelo')
-                    ->sortable()
-                    ->searchable(),
-
-                Tables\Columns\TextColumn::make('version')
-                    ->label('Versión')
-                    ->searchable(),
-
-                Tables\Columns\TextColumn::make('year_made')
-                    ->label('Año de Fabricación')
-                    ->sortable(),
-
-                Tables\Columns\TextColumn::make('model_year')
-                    ->label('Año de Modelo')
-                    ->sortable(),
-
-                Tables\Columns\TextColumn::make('mileage')
-                    ->label('Kilometraje')
-                    ->sortable(),
-
-                Tables\Columns\TextColumn::make('color.value')
-                    ->label('Color')
-                    ->sortable()
-                    ->searchable(),
-
-                Tables\Columns\TextColumn::make('location.value')
-                    ->label('Ubicación')
-                    ->sortable()
-                    ->searchable(),
-
-                Tables\Columns\TextColumn::make('created_at')
-                    ->label('Creado el')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-
-                Tables\Columns\TextColumn::make('updated_at')
-                    ->label('Actualizado el')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                                    <div style='margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid #e5e7eb;'>
+                                        <div style='display: flex; align-items: center; gap: 0.5rem; color: #4b5563;'>
+                                            <span>📍</span>
+                                            <span>{$record->location->value}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            ";
+                        })
+                        ->html()
+                        ->searchable()
+                        ->sortable(),
+                ]),
             ])
-            ->filters([
-                //
-            ])
+            ->filters([])
             ->actions([])
             ->bulkActions([
                 Tables\Actions\DeleteBulkAction::make(),
@@ -542,8 +546,7 @@ class VehicleResource extends Resource
     public static function getRelations(): array
     {
         return [
-            ImagesRelationManager::class, // Añadir el Relation Manager de Imágenes
-            // Puedes añadir otros Relation Managers si los tienes
+            ImagesRelationManager::class,
         ];
     }
 
