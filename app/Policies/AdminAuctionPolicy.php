@@ -3,10 +3,10 @@
 namespace App\Policies;
 
 use App\Models\User;
-use App\Models\Auction;
+use App\Models\AdminAuction;
 use Illuminate\Auth\Access\HandlesAuthorization;
 
-class AuctionPolicy
+class AdminAuctionPolicy
 {
     use HandlesAuthorization;
 
@@ -15,15 +15,15 @@ class AuctionPolicy
      */
     public function viewAny(User $user): bool
     {
-        return $user->can('view_any_reseller::auction');
+        return $user->can('view_any_auction');
     }
 
     /**
      * Determine whether the user can view the model.
      */
-    public function view(User $user, Auction $auction): bool
+    public function view(User $user, AdminAuction $adminAuction): bool
     {
-        return $user->can('view_reseller::auction');
+        return $user->can('view_auction');
     }
 
     /**
@@ -31,23 +31,23 @@ class AuctionPolicy
      */
     public function create(User $user): bool
     {
-        return $user->can('create_reseller::auction');
+        return $user->can('create_auction');
     }
 
     /**
      * Determine whether the user can update the model.
      */
-    public function update(User $user, Auction $auction): bool
+    public function update(User $user, AdminAuction $adminAuction): bool
     {
-        return $user->can('update_reseller::auction');
+        return $user->can('update_auction');
     }
 
     /**
      * Determine whether the user can delete the model.
      */
-    public function delete(User $user, Auction $auction): bool
+    public function delete(User $user, AdminAuction $adminAuction): bool
     {
-        return $user->can('delete_reseller::auction');
+        return $user->can('delete_auction');
     }
 
     /**
@@ -55,15 +55,15 @@ class AuctionPolicy
      */
     public function deleteAny(User $user): bool
     {
-        return $user->can('delete_any_reseller::auction');
+        return $user->can('delete_any_auction');
     }
 
     /**
      * Determine whether the user can permanently delete.
      */
-    public function forceDelete(User $user, Auction $auction): bool
+    public function forceDelete(User $user, AdminAuction $adminAuction): bool
     {
-        return $user->can('force_delete_reseller::auction');
+        return $user->can('force_delete_auction');
     }
 
     /**
@@ -71,15 +71,15 @@ class AuctionPolicy
      */
     public function forceDeleteAny(User $user): bool
     {
-        return $user->can('force_delete_any_reseller::auction');
+        return $user->can('force_delete_any_auction');
     }
 
     /**
      * Determine whether the user can restore.
      */
-    public function restore(User $user, Auction $auction): bool
+    public function restore(User $user, AdminAuction $adminAuction): bool
     {
-        return $user->can('restore_reseller::auction');
+        return $user->can('restore_auction');
     }
 
     /**
@@ -87,15 +87,15 @@ class AuctionPolicy
      */
     public function restoreAny(User $user): bool
     {
-        return $user->can('restore_any_reseller::auction');
+        return $user->can('restore_any_auction');
     }
 
     /**
      * Determine whether the user can replicate.
      */
-    public function replicate(User $user, Auction $auction): bool
+    public function replicate(User $user, AdminAuction $adminAuction): bool
     {
-        return $user->can('replicate_reseller::auction');
+        return $user->can('replicate_auction');
     }
 
     /**
@@ -103,6 +103,6 @@ class AuctionPolicy
      */
     public function reorder(User $user): bool
     {
-        return $user->can('reorder_reseller::auction');
+        return $user->can('reorder_auction');
     }
 }

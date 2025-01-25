@@ -39,7 +39,15 @@ class Auction extends Model
                 'version',
                 'year_made',
                 'model_year',
-                'mileage'
+                'engine_cc',
+                'cylinders_id',
+                'fuel_type_id',
+                'mileage',
+                'doors_id',
+                'traction_id',
+                'color_id',
+                'location_id',
+                'additional_description'
             ]);
     }
     

@@ -60,29 +60,24 @@ return [
 
     'generator' => [
         'option' => 'policies_and_permissions',
-        'policy_directory' => 'Policies',
-        'policy_namespace' => 'Policies',
     ],
 
     'exclude' => [
         'enabled' => true,
-
         'pages' => [
             'Dashboard',
         ],
-
         'widgets' => [
             'AccountWidget',
             'FilamentInfoWidget',
         ],
-
         'resources' => [],
     ],
 
     'discovery' => [
         'discover_all_resources' => true,
-        'discover_all_widgets' => false,
-        'discover_all_pages' => false,
+        'discover_all_widgets' => true,
+        'discover_all_pages' => true,
     ],
 
     'register_role_policy' => [

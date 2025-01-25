@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\ResellerAuctionResource\Pages;
 use App\Models\Auction;
+use App\Models\ResellerAuction;
 use App\Models\Bid;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -30,17 +31,21 @@ use Filament\Forms\Components\Select;
 use Filament\Tables\Filters\Indicator;
 use Carbon\Carbon;
 use Filament\Tables\Enums\FiltersLayout;
+use BezhanSalleh\FilamentShield\Contracts\HasShieldPermissions;
 
-class ResellerAuctionResource extends Resource
+class ResellerAuctionResource extends Resource 
 {
-    protected static ?string $model = Auction::class;
-    protected static ?string $slug = 'reseller-auctions';
+    protected static ?string $model = ResellerAuction::class;
     protected static ?string $navigationGroup = 'Revendedor';
     protected static ?string $navigationIcon = 'heroicon-o-currency-dollar';
     protected static ?string $modelLabel = 'Subasta';
     protected static ?string $pluralModelLabel = 'Subastas';
     protected static ?string $navigationLabel = 'Subastas Disponibles';
     protected static ?int $navigationSort = 1;
+    protected static ?string $slug = 'reseller-auctions';
+
+
+
 
     public static function getEloquentQuery(): Builder
     {

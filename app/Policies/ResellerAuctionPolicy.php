@@ -3,10 +3,10 @@
 namespace App\Policies;
 
 use App\Models\User;
-use App\Models\Auction;
+use App\Models\ResellerAuction;
 use Illuminate\Auth\Access\HandlesAuthorization;
 
-class AuctionPolicy
+class ResellerAuctionPolicy
 {
     use HandlesAuthorization;
 
@@ -21,7 +21,7 @@ class AuctionPolicy
     /**
      * Determine whether the user can view the model.
      */
-    public function view(User $user, Auction $auction): bool
+    public function view(User $user, ResellerAuction $resellerAuction): bool
     {
         return $user->can('view_reseller::auction');
     }
@@ -37,7 +37,7 @@ class AuctionPolicy
     /**
      * Determine whether the user can update the model.
      */
-    public function update(User $user, Auction $auction): bool
+    public function update(User $user, ResellerAuction $resellerAuction): bool
     {
         return $user->can('update_reseller::auction');
     }
@@ -45,7 +45,7 @@ class AuctionPolicy
     /**
      * Determine whether the user can delete the model.
      */
-    public function delete(User $user, Auction $auction): bool
+    public function delete(User $user, ResellerAuction $resellerAuction): bool
     {
         return $user->can('delete_reseller::auction');
     }
@@ -61,7 +61,7 @@ class AuctionPolicy
     /**
      * Determine whether the user can permanently delete.
      */
-    public function forceDelete(User $user, Auction $auction): bool
+    public function forceDelete(User $user, ResellerAuction $resellerAuction): bool
     {
         return $user->can('force_delete_reseller::auction');
     }
@@ -77,7 +77,7 @@ class AuctionPolicy
     /**
      * Determine whether the user can restore.
      */
-    public function restore(User $user, Auction $auction): bool
+    public function restore(User $user, ResellerAuction $resellerAuction): bool
     {
         return $user->can('restore_reseller::auction');
     }
@@ -93,7 +93,7 @@ class AuctionPolicy
     /**
      * Determine whether the user can replicate.
      */
-    public function replicate(User $user, Auction $auction): bool
+    public function replicate(User $user, ResellerAuction $resellerAuction): bool
     {
         return $user->can('replicate_reseller::auction');
     }

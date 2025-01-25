@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\AuctionResource\Pages;
 use App\Models\Auction;
+use App\Models\AdminAuction;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -39,12 +40,12 @@ use Filament\Forms\Components\Card;
 use Filament\Infolists\Components\Actions\Action;
 use Filament\Actions\Action as FilamentAction;
 use Illuminate\Support\HtmlString;
-
+use BezhanSalleh\FilamentShield\Contracts\HasShieldPermissions;
 
 
 class AuctionResource extends Resource
 {
-    protected static ?string $model = Auction::class;
+    protected static ?string $model = AdminAuction::class;
     protected static ?string $navigationIcon = 'heroicon-o-scale';
     protected static ?string $navigationLabel = 'Subastas';
     protected static ?string $pluralLabel = 'Subastas';
@@ -52,7 +53,10 @@ class AuctionResource extends Resource
     protected static ?string $modelLabel = 'Subasta';
     protected static ?string $recordTitleAttribute = 'Subasta';
     protected static ?string $navigationGroup = 'Configuración Subastas';
+    protected static ?string $slug = 'admin-auctions';
 
+
+    
 
     public static function form(Form $form): Form
     {
