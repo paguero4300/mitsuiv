@@ -4,9 +4,11 @@ namespace App\Filament\Widgets;
 
 use Leandrocfe\FilamentApexCharts\Widgets\ApexChartWidget;
 use Illuminate\Support\Facades\DB;
+use BezhanSalleh\FilamentShield\Traits\HasWidgetShield;
 
 class SalesPerformanceChart extends ApexChartWidget
 {
+    use HasWidgetShield;
     protected static ?string $chartId = 'performanceDeVentasChart';
     protected static ?string $heading = 'Performance de Ventas ($)';
 

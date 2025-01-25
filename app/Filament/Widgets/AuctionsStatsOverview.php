@@ -6,9 +6,13 @@ use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use App\Models\Auction;
 use Illuminate\Support\Facades\DB;
+use BezhanSalleh\FilamentShield\Traits\HasWidgetShield;
 
 class AuctionsStatsOverview extends BaseWidget
 {
+    use HasWidgetShield;
+
+    
     protected ?string $heading = 'Resumen de Subastas';
     protected ?string $description = 'Vista general de estadísticas clave.';
 

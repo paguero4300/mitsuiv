@@ -4,6 +4,7 @@ namespace App\Filament\Widgets;
 
 use Leandrocfe\FilamentApexCharts\Widgets\ApexChartWidget;
 use Illuminate\Support\Facades\DB;
+use BezhanSalleh\FilamentShield\Traits\HasWidgetShield;
 
 class AuctionsPerformanceChart extends ApexChartWidget
 {
@@ -12,6 +13,7 @@ class AuctionsPerformanceChart extends ApexChartWidget
      *
      * @var string
      */
+    use HasWidgetShield;
     protected static ?string $chartId = 'auctionsPerformanceChart';
 
     /**
