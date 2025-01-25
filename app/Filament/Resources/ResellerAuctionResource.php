@@ -15,7 +15,7 @@ use Filament\Tables\Actions\Action;
 use Filament\Tables\Actions\ViewAction;
 use App\Services\BidService;
 use Filament\Forms;
-use Filament\Infolists\Components\Grid;
+use Filament\Forms\Components\Grid;
 use Filament\Infolists\Components\IconEntry;
 use Filament\Infolists\Components\Section;
 use Filament\Infolists\Components\TextEntry;
@@ -31,7 +31,12 @@ use Filament\Forms\Components\Select;
 use Filament\Tables\Filters\Indicator;
 use Carbon\Carbon;
 use Filament\Tables\Enums\FiltersLayout;
-use BezhanSalleh\FilamentShield\Contracts\HasShieldPermissions;
+use Filament\Support\Enums\FontWeight;
+use Filament\Tables\Columns\Layout\Split;
+use Filament\Tables\Columns\ImageColumn;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Columns\Layout\Stack;
+                                                                                                                                                                                                                                                                                                                                                                                                                               
 
 class ResellerAuctionResource extends Resource 
 {
@@ -80,44 +85,142 @@ class ResellerAuctionResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('vehicle.plate')
-                    ->label('Placa')
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('vehicle.brand.value')
-                    ->label('Marca')
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('vehicle.model.value')
-                    ->label('Modelo')
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('vehicle.year_made')
-                    ->label('Año')
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('base_price')
-                    ->label('Precio Base')
-                    ->money('USD')
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('current_price')
-                    ->label('Precio Actual')
-                    ->money('USD')
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('end_date')
-                    ->label('Finaliza')
-                    ->dateTime('d/m/Y H:i')
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('status.name')
-                    ->label('Estado')
-                    ->badge()
-                    ->color(fn (Auction $record) => 
-                        match($record->status_id) {
-                            2 => 'warning',
-                            3 => 'success',
-                            default => 'gray'
-                        }
-                    ),
-                Tables\Columns\TextColumn::make('bid_status')
-                    ->label('Mi Puja')
-                    ->badge()
-                    ->color(fn (Auction $record) => $record->bid_status_color),
+                // Vista para PC - Visible desde md (tablets/desktop) en adelante
+                Split::make([
+                    Tables\Columns\TextColumn::make('vehicle.plate')
+                        ->label('Placa')
+                        ->searchable()
+                        ->sortable()
+                        ->toggleable(),
+                    
+                    Tables\Columns\TextColumn::make('vehicle.brand.value')
+                        ->label('Marca')
+                        ->searchable()
+                        ->sortable()
+                        ->toggleable(),
+                        
+                    Tables\Columns\TextColumn::make('vehicle.model.value')
+                        ->label('Modelo')
+                        ->searchable()
+                        ->sortable()
+                        ->toggleable(),
+                        
+                    Tables\Columns\TextColumn::make('vehicle.year_made')
+                        ->label('Año')
+                        ->sortable()
+                        ->toggleable(),
+                        
+                    Tables\Columns\TextColumn::make('base_price')
+                        ->label('Precio Base')
+                        ->money('USD')
+                        ->weight('bold')
+                        ->sortable()
+                        ->toggleable(),
+                        
+                    Tables\Columns\TextColumn::make('current_price')
+                        ->label('Precio Actual')
+                        ->money('USD')
+                        ->sortable()
+                        ->color('success')
+                        ->weight('bold')
+                        ->toggleable(),
+                        
+                    Tables\Columns\TextColumn::make('end_date')
+                        ->label('Finaliza')
+                        ->dateTime('d/m/Y H:i')
+                        ->sortable()
+                        ->color('primary')
+                        ->size(TextColumn\TextColumnSize::ExtraSmall)
+                        ->icon('heroicon-m-clock')
+                        ->iconColor('primary')
+                        ->toggleable(),
+                        
+                    Tables\Columns\TextColumn::make('status.name')
+                        ->label('Estado')
+                        ->badge()
+                        ->color(fn (Auction $record) => 
+                            match($record->status_id) {
+                                2 => 'warning',
+                                3 => 'success',
+                                default => 'gray'
+                            }
+                        )
+                        ->toggleable(),
+                        
+                    Tables\Columns\TextColumn::make('bid_status')
+                        ->label('Mi Puja')
+                        ->badge()
+                        ->color(fn (Auction $record) => $record->bid_status_color)
+                        ->toggleable(),
+                ])->visibleFrom('md'), // Solo visible en pantallas md y superiores
+
+                // Vista para Mobile - Se oculta en md en adelante
+                Stack::make([
+                    // Encabezado con información principal
+                    Split::make([
+                        Tables\Columns\TextColumn::make('vehicle.plate')
+                            ->label('Placa')
+                            ->weight('bold')
+                            ->size('lg'),
+                            
+                        Tables\Columns\TextColumn::make('status.name')
+                            ->label('Estado')
+                            ->badge()
+                            ->color(fn (Auction $record) => 
+                                match($record->status_id) {
+                                    2 => 'warning',
+                                    3 => 'success',
+                                    default => 'gray'
+                                }
+                            ),
+                    ])->grow(false),
+                    
+                    // Información del vehículo
+                    Stack::make([
+                        Split::make([
+                            Tables\Columns\TextColumn::make('vehicle.brand.value')
+                                ->label('Marca')
+                                ->size('sm'),
+                                
+                            Tables\Columns\TextColumn::make('vehicle.model.value')
+                                ->label('Modelo')
+                                ->size('sm'),
+                                
+                            Tables\Columns\TextColumn::make('vehicle.year_made')
+                                ->label('Año')
+                                ->size('sm'),
+                        ]),
+                        
+                        // Precios y fecha
+                        Split::make([
+                            Tables\Columns\TextColumn::make('base_price')
+                            ->label('Precio Base')
+                            ->money('USD')
+                             ->weight('bold'),
+
+                            Tables\Columns\TextColumn::make('current_price')
+                                ->label('Precio Actual')
+                                ->money('USD')
+                                ->weight('bold')
+                                ->color('success'),
+                                
+                            Tables\Columns\TextColumn::make('end_date')
+                                ->label('Finaliza')
+                                ->dateTime('d/m/Y H:i')
+                                ->color('primary')
+                        ->size(TextColumn\TextColumnSize::ExtraSmall)
+                        ->icon('heroicon-m-clock')
+                        ->iconColor('primary')
+                                ->color('danger'),
+                        ]),
+                        
+                        // Estado de la puja
+                        Tables\Columns\TextColumn::make('bid_status')
+                            ->label('Mi Puja')
+                            ->badge()
+                            ->color(fn (Auction $record) => $record->bid_status_color),
+                    ]),
+                ])->hiddenFrom('md'), // Se oculta en pantallas md y superiores
             ])
             ->actions([
                 ViewAction::make()
@@ -126,17 +229,18 @@ class ResellerAuctionResource extends Resource
             ->defaultSort('end_date', 'asc')
             ->poll('10s')
             ->filters([
-                // Agrupamos los filtros por categorías
+                // Filtros de estado
                 SelectFilter::make('status_id')
                     ->label('Estado')
                     ->multiple()
                     ->preload()
-                    ->options(fn() => \App\Models\AuctionStatus::pluck('name', 'id'))
+                    ->options(fn() =>\App\Models\AuctionStatus::pluck('name', 'id'))
                     ->indicator('Estado'),
 
+                // Filtro de rango de precios
                 Filter::make('price_range')
                     ->form([
-                        Forms\Components\Grid::make(2)
+                        Grid::make(2)
                             ->schema([
                                 TextInput::make('price_from')
                                     ->label('Precio Mínimo')
@@ -174,9 +278,10 @@ class ResellerAuctionResource extends Resource
                         return $indicators;
                     }),
 
+                // Filtro de rango de fechas
                 Filter::make('date_range')
                     ->form([
-                        Forms\Components\Grid::make(2)
+                        Grid::make(2)
                             ->schema([
                                 DatePicker::make('created_from')
                                     ->label('Desde')
@@ -211,9 +316,10 @@ class ResellerAuctionResource extends Resource
                         return $indicators;
                     }),
 
+                // Filtro de detalles del vehículo
                 SelectFilter::make('vehicle_details')
                     ->form([
-                        Forms\Components\Grid::make(2)
+                        Grid::make(2)
                             ->schema([
                                 Select::make('brand_id')
                                     ->label('Marca')
@@ -290,7 +396,8 @@ class ResellerAuctionResource extends Resource
                     ->label('Filtros')
                     ->icon('heroicon-m-funnel')
             );
-    }
+        }
+    
 
     public static function canCreate(): bool
     {
