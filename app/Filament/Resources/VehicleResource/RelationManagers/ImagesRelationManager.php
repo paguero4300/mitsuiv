@@ -90,13 +90,6 @@ class ImagesRelationManager extends RelationManager
                     ->label('Orden')
                     ->sortable()
                     ->alignCenter(),
-
-                // Columna que muestra la fecha de creación
-                TextColumn::make('created_at')
-                    ->label('Creada el')
-                    ->dateTime('d/m/Y H:i')
-                    ->sortable()
-                    ->toggleable(true),
             ])
             ->defaultSort('order', 'asc')
             ->filters([])

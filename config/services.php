@@ -34,5 +34,20 @@ return [
             'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
         ],
     ],
+    
+    'twilio' => [
+    'sid' => env('TWILIO_SID'),
+    'token' => env('TWILIO_TOKEN'),
+    'whatsapp_from' => env('TWILIO_WHATSAPP_FROM'),  
+],
+
+
+'meta_wa' => [
+    'token' => env('META_WA_TOKEN'),
+    'phone_number_id' => env('META_WA_PHONE_NUMBER_ID'),
+    'test_number' => env('META_WA_TEST_NUMBER'),
+    'api_version' => env('META_WA_API_VERSION', 'v19.0'),
+],
+
 
 ];

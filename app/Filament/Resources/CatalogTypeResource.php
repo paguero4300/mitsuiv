@@ -29,6 +29,25 @@ class CatalogTypeResource extends Resource
 
 
     protected static ?string $navigationGroup = 'Catálogos del Sistema';
+
+    // Deshabilitamos la creación de nuevos registros
+    public static function canCreate(): bool
+    {
+        return false;
+    }
+
+    // Deshabilitamos la edición de registros
+    public static function canEdit(mixed $record): bool
+    {
+        return false;
+    }
+
+    // Deshabilitamos la eliminación de registros
+    public static function canDelete(mixed $record): bool
+    {
+        return false;
+    }
+
     /**
      * Formulario para crear y editar registros de tipos de catálogos.
      */
@@ -61,39 +80,38 @@ class CatalogTypeResource extends Resource
      */
     public static function table(Table $table): Table
     {
-        return $table->columns([
-            Tables\Columns\TextColumn::make('name')
-                ->label('Nombre')
-                ->searchable()
-                ->formatStateUsing(fn(string $state): string => strtoupper($state)),
+        return $table
+            ->columns([
+                Tables\Columns\TextColumn::make('name')
+                    ->label('Nombre')
+                    ->searchable()
+                    ->formatStateUsing(fn(string $state): string => strtoupper($state))
+                    ->wrap() // Permite que el texto se ajuste en móviles
+                    ->grow(false), // Evita que la columna ocupe demasiado espacio
 
-            Tables\Columns\TextColumn::make('description')
-                ->label('Descripción')
-                ->searchable(),
+                Tables\Columns\TextColumn::make('description')
+                    ->label('Descripción')
+                    ->searchable()
+                    ->wrap() // Permite que el texto se ajuste en móviles
+                    ->grow(true), // Permite que esta columna crezca
 
-            Tables\Columns\IconColumn::make('active')
-                ->label('Activo')
-                ->boolean(),
+                Tables\Columns\IconColumn::make('active')
+                    ->label('Activo')
+                    ->boolean(),
 
-            Tables\Columns\TextColumn::make('created_at')
-                ->label('Creado el')
-                ->dateTime()
-                ->sortable()
-                ->toggleable(isToggledHiddenByDefault: true),
-
-            Tables\Columns\TextColumn::make('updated_at')
-                ->label('Actualizado el')
-                ->dateTime()
-                ->sortable()
-                ->toggleable(isToggledHiddenByDefault: true),
-        ])
-            ->filters([])
-            ->actions([
-                Tables\Actions\EditAction::make(),
+                Tables\Columns\TextColumn::make('created_at')
+                    ->label('Creado el')
+                    ->dateTime()
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
-            ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([]),
-            ]);
+            ->filters([])
+            ->actions([]) // Eliminamos todas las acciones
+            ->bulkActions([]) // Eliminamos las acciones en masa
+            ->defaultSort('name', 'asc')
+            ->striped()
+            ->paginated([10, 25, 50])
+            ->poll('60s'); // Actualiza la tabla cada 60 segundos
     }
 
     /**
@@ -113,8 +131,6 @@ class CatalogTypeResource extends Resource
     {
         return [
             'index' => Pages\ListCatalogTypes::route('/'),
-            'create' => Pages\CreateCatalogType::route('/crear'),
-            'edit' => Pages\EditCatalogType::route('/{record}/editar'),
         ];
     }
 }

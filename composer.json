@@ -12,6 +12,7 @@
         "blade-ui-kit/blade-heroicons": "^2.5",
         "filament/filament": "^3.2",
         "filament/spatie-laravel-media-library-plugin": "^3.2",
+        "guzzlehttp/guzzle": "^7.9",
         "hydrat/filament-table-layout-toggle": "^2.0",
         "joaopaulolndev/filament-edit-profile": "^1.0",
         "laravel-lang/common": "^6.4",
@@ -20,7 +21,8 @@
         "leandrocfe/filament-apex-charts": "^3.1",
         "solution-forest/filament-simplelightbox": "^0.0.10",
         "solutionforest/filamentloginscreen": "^0.0.1",
-        "tomatophp/filament-users": "^2.0"
+        "tomatophp/filament-users": "^2.0",
+        "twilio/sdk": "^8.3"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",
