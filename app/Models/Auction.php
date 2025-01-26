@@ -71,10 +71,53 @@ class Auction extends Model
         return $this->hasOne(AuctionAdjudication::class);
     }
 
+    public function adjudications()
+    {
+        return $this->hasMany(AuctionAdjudication::class, 'auction_id');
+    }
+
+    /**
+     * Verifica si se pueden realizar pujas en la subasta
+     * 
+     * Estados y transiciones permitidas:
+     * - Sin Oferta (2): Estado inicial, puede recibir pujas
+     * - En Proceso (3): Ya tiene pujas, puede recibir más
+     * 
+     * Estados finales (no permiten pujas):
+     * - Fallida (4): Cerrada sin ofertas o rechazada
+     * - Ganada (5): Cerrada con ofertas, pendiente de adjudicación
+     * - Adjudicada (6): Venta concretada
+     */
     public function canBid(): bool
     {
-        return $this->end_date > now() && 
-               in_array($this->status_id, [2, 3]); // En Proceso o Sin Oferta
+        // 1. Validar tiempo
+        $now = now();
+        $timeValid = $this->start_date <= $now && $this->end_date > $now;
+        
+        if (!$timeValid) {
+            return false;
+        }
+
+        // 2. Validar estado
+        $allowedStatuses = [
+            \App\Models\AuctionStatus::SIN_OFERTA,
+            \App\Models\AuctionStatus::EN_PROCESO
+        ];
+
+        // Estados finales que no permiten pujas
+        $finalStatuses = [
+            \App\Models\AuctionStatus::FALLIDA,
+            \App\Models\AuctionStatus::GANADA,
+            \App\Models\AuctionStatus::ADJUDICADA
+        ];
+
+        // Si está en un estado final, no permite pujas
+        if (in_array($this->status_id, $finalStatuses)) {
+            return false;
+        }
+
+        // Solo permite pujas en estados válidos
+        return in_array($this->status_id, $allowedStatuses);
     }
 
     public function auctionSetting()

@@ -45,6 +45,9 @@ use Filament\Tables\Columns\Layout\Stack;
 use Filament\Notifications\Notification;
 use Illuminate\Database\Eloquent\Collection;
 use Closure;
+use Illuminate\Support\Facades\DB;
+use App\Models\User;
+use App\Livewire\AuctionStatusInfo;
 
 
 class AuctionResource extends Resource
@@ -236,532 +239,318 @@ class AuctionResource extends Resource
             // Información de Precios y Tiempo
             \Filament\Infolists\Components\Section::make('Información de Precios y Tiempo')
                 ->schema([
-                    \Filament\Infolists\Components\Grid::make(4)
+                    \Filament\Infolists\Components\Livewire::make(AuctionStatusInfo::class)
+                        ->columnSpanFull(),
+                ]),
+
+            // Galería del Vehículo
+            \Filament\Infolists\Components\Section::make('Galería del Vehículo')
+                ->description('Imágenes del vehículo seleccionado')
+                ->icon('heroicon-o-camera')
+                ->collapsible()
+                ->persistCollapsed()
+                ->compact()
+                ->extraAttributes([
+                    'class' => 'fi-section-content-collapsible',
+                ])
+                ->schema([
+                    ViewEntry::make('vehicle_images')
+                        ->view('filament.components.vehicle-gallery')
+                        ->columnSpanFull(),
+                ])
+                ->columnSpanFull(),
+
+            // Información General
+            \Filament\Infolists\Components\Section::make('Información General')
+                ->description('Detalles técnicos del vehículo')
+                ->icon('heroicon-o-information-circle')
+                ->collapsible()
+                ->persistCollapsed()
+                ->compact()
+                ->extraAttributes([
+                    'class' => 'fi-section-content-collapsible',
+                ])
+                ->schema([
+                    \Filament\Infolists\Components\Grid::make(2)
                         ->schema([
-                            TextEntry::make('start_countdown')
-                                ->label('Inicio')
-                                ->state(function (Auction $record) {
-                                    $now = now()->timezone('America/Lima');
-                                    $start = Carbon::parse($record->start_date)->timezone('America/Lima');
-
-                                    if ($start->lte($now)) {
-                                        return null;
-                                    }
-
-                                    $interval = $now->diff($start);
-                                    $parts = [];
-
-                                    if ($interval->d > 0) {
-                                        $parts[] = "{$interval->d}d";
-                                    }
-                                    if ($interval->h > 0) {
-                                        $parts[] = "{$interval->h}h";
-                                    }
-                                    if ($interval->i > 0) {
-                                        $parts[] = "{$interval->i}m";
-                                    }
-
-                                    return "Inicia en: " . (empty($parts) ? "< 1m" : implode(' ', $parts));
-                                })
-                                ->badge()
-                                ->color('warning')
+                            \Filament\Infolists\Components\TextEntry::make('vehicle.plate')
+                                ->label('Placa')
+                                ->icon('heroicon-o-identification')
                                 ->weight('bold')
-                                ->visible(fn (Auction $record) => Carbon::parse($record->start_date)->gt(now())),
-
-                            TextEntry::make('remaining_time')
-                                ->label('Tiempo Restante')
-                                ->state(function (Auction $record) {
-                                    $now = now()->timezone('America/Lima');
-                                    $start = Carbon::parse($record->start_date)->timezone('America/Lima');
-                                    $end = Carbon::parse($record->end_date)->timezone('America/Lima');
-
-                                    // Si no ha iniciado, no mostramos nada
-                                    if ($start->gt($now)) {
-                                        return null;
-                                    }
-
-                                    // Si ya finalizó
-                                    if ($end->isPast()) {
-                                        return 'Subasta finalizada';
-                                    }
-
-                                    // Si está en curso, mostramos tiempo restante
-                                    $interval = $now->diff($end);
-                                    $parts = [];
-
-                                    if ($interval->d > 0) {
-                                        $parts[] = "{$interval->d}d";
-                                    }
-                                    if ($interval->h > 0) {
-                                        $parts[] = "{$interval->h}h";
-                                    }
-                                    if ($interval->i > 0) {
-                                        $parts[] = "{$interval->i}m";
-                                    }
-
-                                    return empty($parts) ? "< 1m" : implode(' ', $parts);
-                                })
-                                ->badge()
-                                ->color(function (Auction $record) {
-                                    $now = now()->timezone('America/Lima');
-                                    $start = Carbon::parse($record->start_date)->timezone('America/Lima');
-                                    $end = Carbon::parse($record->end_date)->timezone('America/Lima');
-
-                                    if ($start->gt($now) || $end->isPast()) {
-                                        return 'gray';
-                                    }
-
-                                    $hoursRemaining = $now->diffInHours($end, false);
-                                    
-                                    if ($hoursRemaining <= 1) {
-                                        return 'danger';
-                                    } elseif ($hoursRemaining <= 6) {
-                                        return 'warning';
-                                    } elseif ($hoursRemaining <= 24) {
-                                        return 'info';
-                                    } else {
-                                        return 'success';
-                                    }
-                                })
-                                ->weight('bold')
-                                ->visible(fn (Auction $record) => 
-                                    Carbon::parse($record->start_date)->lte(now()) && 
-                                    Carbon::parse($record->end_date)->gt(now())
-                                ),
-
-                            TextEntry::make('base_price')
-                                ->label('Precio Base')
-                                ->prefix('US$')
-                                ->numeric(
-                                    decimalPlaces: 2,
-                                    thousandsSeparator: ',',
-                                )
-                                ->badge()
-                                ->color('info')
+                                ->color('primary'),
+                            \Filament\Infolists\Components\TextEntry::make('vehicle.brand.value')
+                                ->label('Marca')
+                                ->icon('heroicon-o-building-storefront')
                                 ->weight('bold'),
-                                
-                            TextEntry::make('current_price')
-                                ->label('Precio Final')
-                                ->prefix('US$')
-                                ->numeric(
-                                    decimalPlaces: 2,
-                                    thousandsSeparator: ',',
-                                )
-                                ->badge()
-                                ->color('success')
+                            \Filament\Infolists\Components\TextEntry::make('vehicle.model.value')
+                                ->label('Modelo')
+                                ->icon('heroicon-o-truck')
                                 ->weight('bold'),
+                        ]),
 
-                            \Filament\Infolists\Components\Actions::make([
-                                \Filament\Infolists\Components\Actions\Action::make('ver_historial')
-                                    ->label('Ver Historial')
-                                    ->icon('heroicon-o-arrow-path')
-                                    ->color('primary')
-                                    ->modalHeading('Historial de Ofertas')
-                                    ->modalIcon('heroicon-o-banknotes')
-                                    ->modalWidth('xl')
-                                    ->modalSubmitAction(false)
-                                    ->modalCancelActionLabel('Cancelar')
-                                    ->before(function() {
-                                        return new HtmlString("
-                                            <script>
-                                                document.addEventListener('modal-opened', function() {
-                                                    const gallery = document.querySelector('.fi-section:has([data-section-content=\"Galería del Vehículo\"])');
-                                                    if (gallery) {
-                                                        gallery.style.setProperty('visibility', 'hidden', 'important');
-                                                        gallery.style.setProperty('position', 'absolute', 'important');
-                                                        gallery.style.setProperty('pointer-events', 'none', 'important');
-                                                        gallery.style.setProperty('z-index', '-1', 'important');
-                                                    }
-                                                });
-                                                
-                                                document.addEventListener('modal-closed', function() {
-                                                    const gallery = document.querySelector('.fi-section:has([data-section-content=\"Galería del Vehículo\"])');
-                                                    if (gallery) {
-                                                        gallery.style.removeProperty('visibility');
-                                                        gallery.style.removeProperty('position');
-                                                        gallery.style.removeProperty('pointer-events');
-                                                        gallery.style.removeProperty('z-index');
-                                                    }
-                                                });
-                                            </script>
-                                        ");
-                                    })
-                                    ->modalContent(function (Auction $record) {
-                                        return view('filament.components.bid-history', [
-                                            'bids' => $record->bids()->with('reseller')->get()
-                                        ]);
-                                    })
-                                    ->closeModalByClickingAway(false),
-
-                                \Filament\Infolists\Components\Actions\Action::make('ver_ganador')
-                                    ->label('Ver Ganador')
-                                    ->icon('heroicon-o-trophy')
-                                    ->color('success')
-                                    ->visible(fn (Auction $record) => $record->end_date->isPast())
-                                    ->modalHeading('Ganador de la Subasta')
-                                    ->modalIcon('heroicon-o-trophy')
-                                    ->modalWidth('md')
-                                    ->modalSubmitAction(false)
-                                    ->modalCancelActionLabel('Cerrar')
-                                    ->modalContent(function (Auction $record) {
-                                        $winningBid = $record->bids()->orderByDesc('amount')->first();
-                                        
-                                        if (!$winningBid) {
-                                            return new HtmlString('
-                                                <div class="flex flex-col items-center justify-center py-8 text-gray-500">
-                                                    <x-heroicon-o-x-circle class="w-12 h-12 mb-3 text-danger-500" />
-                                                    <p class="text-lg font-medium">Subasta sin ganador</p>
-                                                    <p class="text-sm text-gray-400">No se registraron ofertas en esta subasta</p>
-                                                </div>
-                                            ');
-                                        }
-
-                                        return new HtmlString('
-                                            <div class="p-4 space-y-6">
-                                                <div class="flex items-center justify-center">
-                                                    <div class="p-2 rounded-full bg-success-50">
-                                                        <x-heroicon-o-trophy class="w-8 h-8 text-success-500" />
-                                                    </div>
-                                                </div>
-                                                
-                                                <div class="space-y-4">
-                                                    <div class="p-4 bg-white border border-gray-200 rounded-lg">
-                                                        <div class="flex items-center gap-4">
-                                                            <div class="flex items-center justify-center w-12 h-12 rounded-full bg-primary-50">
-                                                                <x-heroicon-o-user class="w-6 h-6 text-primary-500" />
-                                                            </div>
-                                                            <div>
-                                                                <h3 class="text-lg font-semibold text-gray-900">' . e($winningBid->reseller->name) . '</h3>
-                                                                <p class="text-sm text-gray-500">' . e($winningBid->reseller->email) . '</p>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-
-                                                    <div class="grid grid-cols-2 gap-4">
-                                                        <div class="p-4 rounded-lg bg-gray-50">
-                                                            <p class="text-sm font-medium text-gray-500">Monto Ganador</p>
-                                                            <p class="text-lg font-bold text-success-600">US$ ' . number_format($winningBid->amount, 2) . '</p>
-                                                        </div>
-                                                        <div class="p-4 rounded-lg bg-gray-50">
-                                                            <p class="text-sm font-medium text-gray-500">Fecha de Adjudicación</p>
-                                                            <p class="text-lg font-medium text-gray-700">' . $record->end_date->format('d/m/Y H:i') . '</p>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ');
-                                    })
-                            ])
-                        ])
-                ]), 
-                // Galería del Vehículo
-                \Filament\Infolists\Components\Section::make('Galería del Vehículo')
-                    ->description('Imágenes del vehículo seleccionado')
-                    ->icon('heroicon-o-camera')
-                    ->collapsible()
-                    ->persistCollapsed()
-                    ->compact()
-                    ->extraAttributes([
-                        'class' => 'fi-section-content-collapsible',
-                    ])
-                    ->schema([
-                        ViewEntry::make('vehicle_images')
-                            ->view('filament.components.vehicle-gallery')
-                            ->columnSpanFull(),
-                    ])
-                    ->columnSpanFull(),
-
-                // Información General
-                \Filament\Infolists\Components\Section::make('Información General')
-                    ->description('Detalles técnicos del vehículo')
-                    ->icon('heroicon-o-information-circle')
-                    ->collapsible()
-                    ->persistCollapsed()
-                    ->compact()
-                    ->extraAttributes([
-                        'class' => 'fi-section-content-collapsible',
-                    ])
-                    ->schema([
-                        \Filament\Infolists\Components\Grid::make(2)
-                            ->schema([
-                                \Filament\Infolists\Components\TextEntry::make('vehicle.plate')
-                                    ->label('Placa')
-                                    ->icon('heroicon-o-identification')
-                                    ->weight('bold')
-                                    ->color('primary'),
-                                \Filament\Infolists\Components\TextEntry::make('vehicle.brand.value')
-                                    ->label('Marca')
-                                    ->icon('heroicon-o-building-storefront')
-                                    ->weight('bold'),
-                                \Filament\Infolists\Components\TextEntry::make('vehicle.model.value')
-                                    ->label('Modelo')
-                                    ->icon('heroicon-o-truck')
-                                    ->weight('bold'),
-                            ]),
+                    \Filament\Infolists\Components\Grid::make(3)
+                        ->schema([
+                            \Filament\Infolists\Components\TextEntry::make('vehicle.year_made')
+                                ->label('Año Fabricación')
+                                ->icon('heroicon-o-calendar')
+                                ->badge(),
+                            \Filament\Infolists\Components\TextEntry::make('vehicle.model_year')
+                                ->label('Año Modelo')
+                                ->icon('heroicon-o-calendar')
+                                ->badge(),
+                            \Filament\Infolists\Components\TextEntry::make('vehicle.mileage')
+                                ->label('Kilometraje')
+                                ->icon('heroicon-o-map')
+                                ->badge()
+                                ->formatStateUsing(fn($state) => number_format($state) . ' km'),
+                        ]),
 
                         \Filament\Infolists\Components\Grid::make(3)
                             ->schema([
-                                \Filament\Infolists\Components\TextEntry::make('vehicle.year_made')
-                                    ->label('Año Fabricación')
-                                    ->icon('heroicon-o-calendar')
-                                    ->badge(),
-                                \Filament\Infolists\Components\TextEntry::make('vehicle.model_year')
-                                    ->label('Año Modelo')
-                                    ->icon('heroicon-o-calendar')
-                                    ->badge(),
-                                \Filament\Infolists\Components\TextEntry::make('vehicle.mileage')
-                                    ->label('Kilometraje')
-                                    ->icon('heroicon-o-map')
-                                    ->badge()
-                                    ->formatStateUsing(fn($state) => number_format($state) . ' km'),
+                                \Filament\Infolists\Components\TextEntry::make('vehicle.transmission.value')
+                                    ->label('Transmisión')
+                                    ->icon('heroicon-o-cog-6-tooth'),
+                                \Filament\Infolists\Components\TextEntry::make('vehicle.bodyType.value')
+                                    ->label('Tipo de Carrocería')
+                                    ->icon('heroicon-o-cube'),
+                                \Filament\Infolists\Components\TextEntry::make('vehicle.traction.value')
+                                    ->label('Tracción')
+                                    ->icon('heroicon-o-wrench'),
                             ]),
 
                             \Filament\Infolists\Components\Grid::make(3)
                                 ->schema([
-                                    \Filament\Infolists\Components\TextEntry::make('vehicle.transmission.value')
-                                        ->label('Transmisión')
-                                        ->icon('heroicon-o-cog-6-tooth'),
-                                    \Filament\Infolists\Components\TextEntry::make('vehicle.bodyType.value')
-                                        ->label('Tipo de Carrocería')
-                                        ->icon('heroicon-o-cube'),
-                                    \Filament\Infolists\Components\TextEntry::make('vehicle.traction.value')
-                                        ->label('Tracción')
-                                        ->icon('heroicon-o-wrench'),
+                                    \Filament\Infolists\Components\TextEntry::make('vehicle.engine_cc')
+                                        ->label('Cilindrada')
+                                        ->icon('heroicon-o-beaker')
+                                        ->formatStateUsing(fn($state) => number_format($state) . ' cc'),
+                                    \Filament\Infolists\Components\TextEntry::make('vehicle.cylinders.value')
+                                        ->label('Cilindros')
+                                        ->icon('heroicon-o-variable'),
+                                    \Filament\Infolists\Components\TextEntry::make('vehicle.fuelType.value')
+                                        ->label('Combustible')
+                                        ->icon('heroicon-o-fire'),
                                 ]),
 
                                 \Filament\Infolists\Components\Grid::make(3)
                                     ->schema([
-                                        \Filament\Infolists\Components\TextEntry::make('vehicle.engine_cc')
-                                            ->label('Cilindrada')
-                                            ->icon('heroicon-o-beaker')
-                                            ->formatStateUsing(fn($state) => number_format($state) . ' cc'),
-                                        \Filament\Infolists\Components\TextEntry::make('vehicle.cylinders.value')
-                                            ->label('Cilindros')
-                                            ->icon('heroicon-o-variable'),
-                                        \Filament\Infolists\Components\TextEntry::make('vehicle.fuelType.value')
-                                            ->label('Combustible')
-                                            ->icon('heroicon-o-fire'),
+                                        \Filament\Infolists\Components\TextEntry::make('vehicle.doors.value')
+                                            ->label('Puertas')
+                                            ->icon('heroicon-o-swatch'),
+                                        \Filament\Infolists\Components\TextEntry::make('vehicle.color.value')
+                                            ->label('Color')
+                                            ->icon('heroicon-o-swatch'),
+                                        \Filament\Infolists\Components\TextEntry::make('vehicle.location.value')
+                                            ->label('Ubicación')
+                                            ->icon('heroicon-o-map-pin'),
                                     ]),
+                        ])
+                        ->columnSpanFull(),
 
-                                    \Filament\Infolists\Components\Grid::make(3)
-                                        ->schema([
-                                            \Filament\Infolists\Components\TextEntry::make('vehicle.doors.value')
-                                                ->label('Puertas')
-                                                ->icon('heroicon-o-swatch'),
-                                            \Filament\Infolists\Components\TextEntry::make('vehicle.color.value')
-                                                ->label('Color')
-                                                ->icon('heroicon-o-swatch'),
-                                            \Filament\Infolists\Components\TextEntry::make('vehicle.location.value')
-                                                ->label('Ubicación')
-                                                ->icon('heroicon-o-map-pin'),
-                                        ]),
-                            ])
-                            ->columnSpanFull(),
+            // Descripción Adicional
+            \Filament\Infolists\Components\Section::make('Descripción Adicional')
+                ->description('Detalles y observaciones adicionales')
+                ->icon('heroicon-o-document-text')
+                ->collapsible()
+                ->collapsed()
+                ->persistCollapsed()
+                ->compact()
+                ->extraAttributes([
+                    'class' => 'fi-section-content-collapsible',
+                ])
+                ->schema([
+                    \Filament\Infolists\Components\TextEntry::make('vehicle.additional_description')
+                        ->label('Descripción')
+                        ->icon('heroicon-o-document-text')
+                        ->markdown()
+                        ->columnSpanFull(),
+                ])
+                ->columnSpanFull(),
 
-                // Descripción Adicional
-                \Filament\Infolists\Components\Section::make('Descripción Adicional')
-                    ->description('Detalles y observaciones adicionales')
-                    ->icon('heroicon-o-document-text')
-                    ->collapsible()
-                    ->collapsed()
-                    ->persistCollapsed()
-                    ->compact()
-                    ->extraAttributes([
-                        'class' => 'fi-section-content-collapsible',
-                    ])
-                    ->schema([
-                        \Filament\Infolists\Components\TextEntry::make('vehicle.additional_description')
-                            ->label('Descripción')
-                            ->icon('heroicon-o-document-text')
-                            ->markdown()
-                            ->columnSpanFull(),
-                    ])
-                    ->columnSpanFull(),
+            // Equipamiento y Características
+            \Filament\Infolists\Components\Section::make('Equipamiento y Características')
+                ->description('Características y equipamiento detallado del vehículo')
+                ->icon('heroicon-o-cog')
+                ->collapsible()
+                ->collapsed()
+                ->persistCollapsed()
+                ->compact()
+                ->extraAttributes([
+                    'class' => 'fi-section-content-collapsible',
+                ])
+                ->schema([
+                    \Filament\Infolists\Components\Grid::make(4)
+                        ->schema([
+                            \Filament\Infolists\Components\TextEntry::make('vehicle.equipment.airbags_count')
+                                ->label('Airbags')
+                                ->badge()
+                                ->color('success')
+                                ->formatStateUsing(fn($state) => $state . ' unidades'),
+                        ])
+                        ->columnSpanFull(),
 
-                // Equipamiento y Características
-                \Filament\Infolists\Components\Section::make('Equipamiento y Características')
-                    ->description('Características y equipamiento detallado del vehículo')
-                    ->icon('heroicon-o-cog')
-                    ->collapsible()
-                    ->collapsed()
-                    ->persistCollapsed()
-                    ->compact()
-                    ->extraAttributes([
-                        'class' => 'fi-section-content-collapsible',
-                    ])
-                    ->schema([
-                        \Filament\Infolists\Components\Grid::make(4)
-                            ->schema([
-                                \Filament\Infolists\Components\TextEntry::make('vehicle.equipment.airbags_count')
-                                    ->label('Airbags')
-                                    ->badge()
-                                    ->color('success')
-                                    ->formatStateUsing(fn($state) => $state . ' unidades'),
-                            ])
-                            ->columnSpanFull(),
+                    \Filament\Infolists\Components\Section::make('Seguridad')
+                        ->schema([
+                            self::createEquipmentGrid([
+                                'alarm' => 'Alarma',
+                                'abs_ebs' => 'ABS/EBS',
+                                'security_glass' => 'Láminas de Seguridad',
+                                'anti_collision' => 'Sistema Anti Colisión',
+                            ]),
+                        ])
+                        ->collapsible()
+                        ->collapsed()
+                        ->compact(),
 
-                        \Filament\Infolists\Components\Section::make('Seguridad')
+                        \Filament\Infolists\Components\Section::make('Confort')
                             ->schema([
                                 self::createEquipmentGrid([
-                                    'alarm' => 'Alarma',
-                                    'abs_ebs' => 'ABS/EBS',
-                                    'security_glass' => 'Láminas de Seguridad',
-                                    'anti_collision' => 'Sistema Anti Colisión',
+                                    'air_conditioning' => 'Aire Acondicionado',
+                                    'mono_zone_ac' => 'AC Mono-zona',
+                                    'bi_zone_ac' => 'AC Bi-zona',
+                                    'multi_zone_ac' => 'AC Multi-zona',
+                                    'electric_seats' => 'Asientos Eléctricos',
+                                    'leather_seats' => 'Asientos de Cuero',
+                                    'sunroof' => 'Techo Solar',
+                                    'cruise_control' => 'Control Crucero',
+                                    'electric_mirrors' => 'Retrovisores Eléctricos',
                                 ]),
                             ])
                             ->collapsible()
                             ->collapsed()
                             ->compact(),
 
-                            \Filament\Infolists\Components\Section::make('Confort')
-                                ->schema([
-                                    self::createEquipmentGrid([
-                                        'air_conditioning' => 'Aire Acondicionado',
-                                        'mono_zone_ac' => 'AC Mono-zona',
-                                        'bi_zone_ac' => 'AC Bi-zona',
-                                        'multi_zone_ac' => 'AC Multi-zona',
-                                        'electric_seats' => 'Asientos Eléctricos',
-                                        'leather_seats' => 'Asientos de Cuero',
-                                        'sunroof' => 'Techo Solar',
-                                        'cruise_control' => 'Control Crucero',
-                                        'electric_mirrors' => 'Retrovisores Eléctricos',
-                                    ]),
-                                ])
-                                ->collapsible()
-                                ->collapsed()
-                                ->compact(),
-
-                            \Filament\Infolists\Components\Section::make('Multimedia')
-                                ->schema([
-                                    self::createEquipmentGrid([
-                                        'apple_carplay' => 'Apple CarPlay',
-                                        'touch_screen' => 'Pantalla Táctil',
-                                        'gps' => 'GPS',
-                                        'speakers' => 'Sistema de Audio',
-                                        'steering_controls' => 'Controles al Volante',
-                                        'usb_ports' => 'Puertos USB',
-                                        'cd_player' => 'Reproductor CD',
-                                        'mp3_player' => 'Reproductor MP3',
-                                    ]),
-                                ])
-                                ->collapsible()
-                                ->collapsed()
-                                ->compact(),
-
-                            \Filament\Infolists\Components\Section::make('Iluminación')
-                                ->schema([
-                                    self::createEquipmentGrid([
-                                        'front_fog_lights' => 'Faros Antiniebla Delanteros',
-                                        'rear_fog_lights' => 'Faros Antiniebla Traseros',
-                                        'bi_led_lights' => 'Luces Bi-LED',
-                                        'halogen_lights' => 'Luces Halógenas',
-                                        'led_lights' => 'Luces LED',
-                                    ]),
-                                ])
-                                ->collapsible()
-                                ->collapsed()
-                                ->compact(),
-
-                            \Filament\Infolists\Components\Section::make('Cámaras')
-                                ->schema([
-                                    self::createEquipmentGrid([
-                                        'front_camera' => 'Cámara Frontal',
-                                        'rear_camera' => 'Cámara Trasera',
-                                        'right_camera' => 'Cámara Derecha',
-                                        'left_camera' => 'Cámara Izquierda',
-                                    ]),
-                                ])
-                                ->collapsible()
-                                ->collapsed()
-                                ->compact(),
-
-                            \Filament\Infolists\Components\Section::make('Otros')
-                                ->schema([
-                                    self::createEquipmentGrid([
-                                        'wheels' => 'Ruedas',
-                                        'alloy_wheels' => 'Aros de Aleación',
-                                        'roof_rack' => 'Barras de Techo',
-                                        'parking_sensors' => 'Sensores de Estacionamiento',
-                                    ]),
-                                ])
-                                ->collapsible()
-                                ->collapsed()
-                                ->compact(),
-
-                            \Filament\Infolists\Components\Section::make('Garantías y Financiamiento')
-                                ->schema([
-                                    self::createEquipmentGrid([
-                                        'factory_warranty' => 'Garantía de Fábrica',
-                                        'complete_documentation' => 'Documentación Completa',
-                                        'guaranteed_mileage' => 'Kilometraje Garantizado',
-                                        'financing' => 'Financiamiento Disponible',
-                                        'part_payment' => 'Acepta Parte de Pago',
-                                    ]),
-                                ])
-                                ->collapsible()
-                                ->collapsed()
-                                ->compact(),
-
-                    ])
-                    ->columnSpanFull(),
-
-                // Documentos del Vehículo
-                \Filament\Infolists\Components\Section::make('Documentos del Vehículo')
-                    ->description('Documentación legal del vehículo')
-                    ->icon('heroicon-o-document-duplicate')
-                    ->collapsible()
-                    ->collapsed()
-                    ->persistCollapsed()
-                    ->compact()
-                    ->extraAttributes([
-                        'class' => 'fi-section-content-collapsible',
-                    ])
-                    ->schema([
-                        \Filament\Infolists\Components\Grid::make(3)
+                        \Filament\Infolists\Components\Section::make('Multimedia')
                             ->schema([
-                                \Filament\Infolists\Components\TextEntry::make('vehicle.soat_document.path')
-                                    ->label('SOAT')
-                                    ->icon('heroicon-o-document-check')
-                                    ->formatStateUsing(function ($state) {
-                                        if (!$state) return null;
-                                        return view('filament.components.document-download', [
-                                            'url' => Storage::url($state),
-                                            'label' => 'SOAT'
-                                        ]);
-                                    })
-                                    ->html()
-                                    ->badge()
-                                    ->color(fn ($state) => $state ? 'success' : 'danger'),
+                                self::createEquipmentGrid([
+                                    'apple_carplay' => 'Apple CarPlay',
+                                    'touch_screen' => 'Pantalla Táctil',
+                                    'gps' => 'GPS',
+                                    'speakers' => 'Sistema de Audio',
+                                    'steering_controls' => 'Controles al Volante',
+                                    'usb_ports' => 'Puertos USB',
+                                    'cd_player' => 'Reproductor CD',
+                                    'mp3_player' => 'Reproductor MP3',
+                                ]),
+                            ])
+                            ->collapsible()
+                            ->collapsed()
+                            ->compact(),
 
-                                \Filament\Infolists\Components\TextEntry::make('vehicle.tarjeta_document.path')
-                                    ->label('Tarjeta de Propiedad')
-                                    ->icon('heroicon-o-document-check')
-                                    ->formatStateUsing(function ($state) {
-                                        if (!$state) return null;
-                                        return view('filament.components.document-download', [
-                                            'url' => Storage::url($state),
-                                            'label' => 'Tarjeta'
-                                        ]);
-                                    })
-                                    ->html()
-                                    ->badge(),
+                        \Filament\Infolists\Components\Section::make('Iluminación')
+                            ->schema([
+                                self::createEquipmentGrid([
+                                    'front_fog_lights' => 'Faros Antiniebla Delanteros',
+                                    'rear_fog_lights' => 'Faros Antiniebla Traseros',
+                                    'bi_led_lights' => 'Luces Bi-LED',
+                                    'halogen_lights' => 'Luces Halógenas',
+                                    'led_lights' => 'Luces LED',
+                                ]),
+                            ])
+                            ->collapsible()
+                            ->collapsed()
+                            ->compact(),
 
-                                \Filament\Infolists\Components\TextEntry::make('vehicle.revision_document.path')
-                                    ->label('Revisión Técnica')
-                                    ->icon('heroicon-o-document-check')
-                                    ->formatStateUsing(function ($state) {
-                                        if (!$state) return null;
-                                        return view('filament.components.document-download', [
-                                            'url' => Storage::url($state),
-                                            'label' => 'Revisión'
-                                        ]);
-                                    })
-                                    ->html()
-                                    ->badge(),
-                            ]),
-                    ])
-                    ->columnSpanFull(),
-            ]);
+                        \Filament\Infolists\Components\Section::make('Cámaras')
+                            ->schema([
+                                self::createEquipmentGrid([
+                                    'front_camera' => 'Cámara Frontal',
+                                    'rear_camera' => 'Cámara Trasera',
+                                    'right_camera' => 'Cámara Derecha',
+                                    'left_camera' => 'Cámara Izquierda',
+                                ]),
+                            ])
+                            ->collapsible()
+                            ->collapsed()
+                            ->compact(),
+
+                        \Filament\Infolists\Components\Section::make('Otros')
+                            ->schema([
+                                self::createEquipmentGrid([
+                                    'wheels' => 'Ruedas',
+                                    'alloy_wheels' => 'Aros de Aleación',
+                                    'roof_rack' => 'Barras de Techo',
+                                    'parking_sensors' => 'Sensores de Estacionamiento',
+                                ]),
+                            ])
+                            ->collapsible()
+                            ->collapsed()
+                            ->compact(),
+
+                        \Filament\Infolists\Components\Section::make('Garantías y Financiamiento')
+                            ->schema([
+                                self::createEquipmentGrid([
+                                    'factory_warranty' => 'Garantía de Fábrica',
+                                    'complete_documentation' => 'Documentación Completa',
+                                    'guaranteed_mileage' => 'Kilometraje Garantizado',
+                                    'financing' => 'Financiamiento Disponible',
+                                    'part_payment' => 'Acepta Parte de Pago',
+                                ]),
+                            ])
+                            ->collapsible()
+                            ->collapsed()
+                            ->compact(),
+
+                ])
+                ->columnSpanFull(),
+
+            // Documentos del Vehículo
+            \Filament\Infolists\Components\Section::make('Documentos del Vehículo')
+                ->description('Documentación legal del vehículo')
+                ->icon('heroicon-o-document-duplicate')
+                ->collapsible()
+                ->collapsed()
+                ->persistCollapsed()
+                ->compact()
+                ->extraAttributes([
+                    'class' => 'fi-section-content-collapsible',
+                ])
+                ->schema([
+                    \Filament\Infolists\Components\Grid::make(3)
+                        ->schema([
+                            \Filament\Infolists\Components\TextEntry::make('vehicle.soat_document.path')
+                                ->label('SOAT')
+                                ->icon('heroicon-o-document-check')
+                                ->formatStateUsing(function ($state) {
+                                    if (!$state) return null;
+                                    return view('filament.components.document-download', [
+                                        'url' => Storage::url($state),
+                                        'label' => 'SOAT'
+                                    ]);
+                                })
+                                ->html()
+                                ->badge()
+                                ->color(fn ($state) => $state ? 'success' : 'danger'),
+
+                            \Filament\Infolists\Components\TextEntry::make('vehicle.tarjeta_document.path')
+                                ->label('Tarjeta de Propiedad')
+                                ->icon('heroicon-o-document-check')
+                                ->formatStateUsing(function ($state) {
+                                    if (!$state) return null;
+                                    return view('filament.components.document-download', [
+                                        'url' => Storage::url($state),
+                                        'label' => 'Tarjeta'
+                                    ]);
+                                })
+                                ->html()
+                                ->badge(),
+
+                            \Filament\Infolists\Components\TextEntry::make('vehicle.revision_document.path')
+                                ->label('Revisión Técnica')
+                                ->icon('heroicon-o-document-check')
+                                ->formatStateUsing(function ($state) {
+                                    if (!$state) return null;
+                                    return view('filament.components.document-download', [
+                                        'url' => Storage::url($state),
+                                        'label' => 'Revisión'
+                                    ]);
+                                })
+                                ->html()
+                                ->badge(),
+                        ]),
+                ])
+                ->columnSpanFull(),
+        ]);
     }
 
     private static function createEquipmentGrid(array $items)
@@ -1199,10 +988,44 @@ class AuctionResource extends Resource
                     ->icon('heroicon-o-magnifying-glass'),
 
                 Tables\Actions\EditAction::make()
-                    ->hidden(fn (Model $record): bool => $record->appraiser_id !== Auth::id()),
+                    ->hidden(function (Model $record): bool {
+                        $user = Auth::user();
+                        
+                        // Si es el creador del registro
+                        if ($record->appraiser_id === $user->id) {
+                            return false;
+                        }
+                        
+                        // Verificar si tiene roles permitidos
+                        $hasPermittedRole = DB::table('model_has_roles')
+                            ->join('roles', 'model_has_roles.role_id', '=', 'roles.id')
+                            ->where('model_has_roles.model_id', $user->id)
+                            ->where('model_has_roles.model_type', 'App\\Models\\User')
+                            ->whereIn('roles.name', ['super_admin', 'administrador'])
+                            ->exists();
+                            
+                        return !$hasPermittedRole;
+                    }),
 
                 Tables\Actions\DeleteAction::make()
-                    ->hidden(fn (Model $record): bool => $record->appraiser_id !== Auth::id()),
+                    ->hidden(function (Model $record): bool {
+                        $user = Auth::user();
+                        
+                        // Si es el creador del registro
+                        if ($record->appraiser_id === $user->id) {
+                            return false;
+                        }
+                        
+                        // Verificar si tiene roles permitidos
+                        $hasPermittedRole = DB::table('model_has_roles')
+                            ->join('roles', 'model_has_roles.role_id', '=', 'roles.id')
+                            ->where('model_has_roles.model_id', $user->id)
+                            ->where('model_has_roles.model_type', 'App\\Models\\User')
+                            ->whereIn('roles.name', ['super_admin', 'administrador'])
+                            ->exists();
+                            
+                        return !$hasPermittedRole;
+                    }),
             ])
             ->bulkActions([
                

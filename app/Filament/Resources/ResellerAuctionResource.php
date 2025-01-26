@@ -84,152 +84,229 @@ class ResellerAuctionResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->poll('10s')
             ->columns([
-                // Vista para PC - Visible desde md (tablets/desktop) en adelante
-                Split::make([
-                    Tables\Columns\TextColumn::make('vehicle.plate')
-                        ->label('Placa')
-                        ->searchable()
-                        ->sortable()
-                        ->toggleable(),
-                    
-                    Tables\Columns\TextColumn::make('vehicle.brand.value')
-                        ->label('Marca')
-                        ->searchable()
-                        ->sortable()
-                        ->toggleable(),
-                        
-                    Tables\Columns\TextColumn::make('vehicle.model.value')
-                        ->label('Modelo')
-                        ->searchable()
-                        ->sortable()
-                        ->toggleable(),
-                        
-                    Tables\Columns\TextColumn::make('vehicle.year_made')
-                        ->label('Año')
-                        ->sortable()
-                        ->toggleable(),
-                        
-                    Tables\Columns\TextColumn::make('base_price')
-                        ->label('Precio Base')
-                        ->money('USD')
-                        ->weight('bold')
-                        ->sortable()
-                        ->toggleable(),
-                        
-                    Tables\Columns\TextColumn::make('current_price')
-                        ->label('Precio Actual')
-                        ->money('USD')
-                        ->sortable()
-                        ->color('success')
-                        ->weight('bold')
-                        ->toggleable(),
-                        
-                    Tables\Columns\TextColumn::make('end_date')
-                        ->label('Finaliza')
-                        ->dateTime('d/m/Y H:i')
-                        ->sortable()
-                        ->color('primary')
-                        ->size(TextColumn\TextColumnSize::ExtraSmall)
-                        ->icon('heroicon-m-clock')
-                        ->iconColor('primary')
-                        ->toggleable(),
-                        
-                    Tables\Columns\TextColumn::make('status.name')
-                        ->label('Estado')
-                        ->badge()
-                        ->color(fn (Auction $record) => 
-                            match($record->status_id) {
-                                2 => 'warning',
-                                3 => 'success',
-                                default => 'gray'
-                            }
-                        )
-                        ->toggleable(),
-                        
-                    Tables\Columns\TextColumn::make('bid_status')
-                        ->label('Mi Puja')
-                        ->badge()
-                        ->color(fn (Auction $record) => $record->bid_status_color)
-                        ->toggleable(),
-                ])->visibleFrom('md'), // Solo visible en pantallas md y superiores
-
-                // Vista para Mobile - Se oculta en md en adelante
                 Stack::make([
-                    // Encabezado con información principal
-                    Split::make([
-                        Tables\Columns\TextColumn::make('vehicle.plate')
-                            ->label('Placa')
-                            ->weight('bold')
-                            ->size('lg'),
-                            
-                        Tables\Columns\TextColumn::make('status.name')
-                            ->label('Estado')
-                            ->badge()
-                            ->color(fn (Auction $record) => 
-                                match($record->status_id) {
-                                    2 => 'warning',
-                                    3 => 'success',
-                                    default => 'gray'
+                    // Imagen del vehículo
+                    Tables\Columns\ImageColumn::make('vehicle.images')
+                        ->height(200)
+                        ->width('100%')
+                        ->defaultImageUrl(url('/images/vehiculo.png'))
+                        ->state(fn($record) => optional($record->vehicle->images()->where('is_main', true)->first())->path)
+                        ->alignment('center')
+                        ->extraAttributes([
+                            'class' => 'w-full h-[200px] object-cover rounded-t-xl',
+                        ]),
+
+                    // Grid de información
+                    Tables\Columns\Layout\Grid::make([
+                        'default' => 2,
+                        'sm' => 2,
+                    ])
+                    ->schema([
+                        Tables\Columns\TextColumn::make('start_date')
+                            ->label('Fecha')
+                            ->formatStateUsing(function (Auction $record): string {
+                                $start = Carbon::parse($record->start_date)->timezone('America/Lima');
+                                $now = now()->timezone('America/Lima');
+                                
+                                $dateStr = $start->format('d/m/Y');
+                                
+                                if ($start->gt($now)) {
+                                    $interval = $now->diff($start);
+                                    $parts = [];
+                                    
+                                    if ($interval->d > 0) {
+                                        $parts[] = "{$interval->d}d";
+                                    }
+                                    if ($interval->h > 0) {
+                                        $parts[] = "{$interval->h}h";
+                                    }
+                                    if ($interval->i > 0) {
+                                        $parts[] = "{$interval->i}m";
+                                    }
+                                    if ($interval->s > 0) {
+                                        $parts[] = "{$interval->s}s";
+                                    }
+                                    
+                                    $timeLeft = empty($parts) ? "< 1s" : implode(' ', $parts);
+                                    return "{$dateStr} (Inicia en: {$timeLeft})";
                                 }
-                            ),
-                    ])->grow(false),
-                    
-                    // Información del vehículo
-                    Stack::make([
-                        Split::make([
+                                
+                                return $dateStr;
+                            })
+                            ->badge()
+                            ->color(function (Auction $record) {
+                                $start = Carbon::parse($record->start_date)->timezone('America/Lima');
+                                $now = now()->timezone('America/Lima');
+                                
+                                if ($start->gt($now)) {
+                                    $hoursRemaining = $now->diffInHours($start, false);
+                                    
+                                    if ($hoursRemaining <= 1) {
+                                        return 'danger';
+                                    } elseif ($hoursRemaining <= 6) {
+                                        return 'warning';
+                                    } elseif ($hoursRemaining <= 24) {
+                                        return 'info';
+                                    } else {
+                                        return 'success';
+                                    }
+                                }
+                                
+                                return null;
+                            })
+                            ->extraAttributes([
+                                'class' => 'text-gray-600 font-medium',
+                            ]),
+                    ])
+                    ->extraAttributes([
+                        'class' => 'gap-2 items-center',
+                    ]),
+
+                    Tables\Columns\Layout\Grid::make()
+                        ->schema([
+                            Tables\Columns\TextColumn::make('vehicle.plate')
+                                ->label('Placa')
+                                ->formatStateUsing(fn ($state): string => "Placa: {$state}")
+                                ->extraAttributes([
+                                    'class' => 'text-lg font-bold text-primary-600',
+                                ]),
+
                             Tables\Columns\TextColumn::make('vehicle.brand.value')
                                 ->label('Marca')
-                                ->size('sm'),
-                                
+                                ->formatStateUsing(fn ($state): string => "Marca: {$state}")
+                                ->extraAttributes([
+                                    'class' => 'text-gray-600',
+                                ]),
+
                             Tables\Columns\TextColumn::make('vehicle.model.value')
                                 ->label('Modelo')
-                                ->size('sm'),
-                                
+                                ->formatStateUsing(fn ($state): string => "Modelo: {$state}")
+                                ->extraAttributes([
+                                    'class' => 'text-gray-800',
+                                ]),
+
                             Tables\Columns\TextColumn::make('vehicle.year_made')
                                 ->label('Año')
-                                ->size('sm'),
-                        ]),
-                        
-                        // Precios y fecha
-                        Split::make([
+                                ->formatStateUsing(fn ($state): string => "Año: {$state}")
+                                ->extraAttributes([
+                                    'class' => 'text-gray-600',
+                                ]),
+
                             Tables\Columns\TextColumn::make('base_price')
-                            ->label('Precio Base')
-                            ->money('USD')
-                            ->color('primary')
-                            ->size(TextColumn\TextColumnSize::ExtraSmall)
-                             ->weight('bold'),
+                                ->label('Base')
+                                ->formatStateUsing(fn ($state): string => "Base: $ " . number_format($state ?? 0, 2))
+                                ->extraAttributes([
+                                    'class' => 'text-success-600 font-bold',
+                                ]),
 
                             Tables\Columns\TextColumn::make('current_price')
-                                ->label('Precio Actual')
-                                ->money('USD')
-                                ->weight('bold')
-                                ->color('success'),
-                                
+                                ->label('Actual')
+                                ->formatStateUsing(fn ($state): string => "Actual: $ " . number_format($state ?? 0, 2))
+                                ->extraAttributes([
+                                    'class' => 'text-primary-600 font-bold',
+                                ]),
+
                             Tables\Columns\TextColumn::make('end_date')
-                                ->label('Finaliza')
-                                ->dateTime('d/m/Y H:i')
-                                ->color('primary')
-                        ->size(TextColumn\TextColumnSize::ExtraSmall)
-                        ->icon('heroicon-m-clock')
-                        ->iconColor('primary')
-                                ->color('danger'),
+                                ->formatStateUsing(function (Auction $record) {
+                                    $now = now()->timezone('America/Lima');
+                                    $startDate = Carbon::parse($record->start_date)->timezone('America/Lima');
+                                    $endDate = Carbon::parse($record->end_date)->timezone('America/Lima');
+
+                                    if ($startDate->gt($now)) {
+                                        return null;
+                                    }
+
+                                    if ($endDate->isPast()) {
+                                        return "Tiempo: Finalizada";
+                                    }
+
+                                    $remaining = $now->diff($endDate);
+                                    
+                                    if ($remaining->days > 0) {
+                                        return "Tiempo: {$remaining->days}d {$remaining->h}h {$remaining->i}m {$remaining->s}s";
+                                    } elseif ($remaining->h > 0) {
+                                        return "Tiempo: {$remaining->h}h {$remaining->i}m {$remaining->s}s";
+                                    } elseif ($remaining->i > 0) {
+                                        return "Tiempo: {$remaining->i}m {$remaining->s}s";
+                                    } else {
+                                        return "Tiempo: {$remaining->s}s";
+                                    }
+                                })
+                                ->color(function (Auction $record) {
+                                    $now = now()->timezone('America/Lima');
+                                    $startDate = Carbon::parse($record->start_date)->timezone('America/Lima');
+                                    $endDate = Carbon::parse($record->end_date)->timezone('America/Lima');
+
+                                    if ($startDate->gt($now) || $endDate->isPast()) {
+                                        return null;
+                                    }
+                                    
+                                    $hoursRemaining = $now->diffInHours($endDate, false);
+                                    
+                                    if ($hoursRemaining <= 1) {
+                                        return 'danger';
+                                    } elseif ($hoursRemaining <= 6) {
+                                        return 'warning';
+                                    } elseif ($hoursRemaining <= 24) {
+                                        return 'info';
+                                    } else {
+                                        return 'success';
+                                    }
+                                })
+                                ->extraAttributes([
+                                    'class' => 'text-gray-600 font-medium',
+                                ]),
+
+                            Tables\Columns\TextColumn::make('status.name')
+                                ->formatStateUsing(fn (string $state): string => "Estado: {$state}")
+                                ->badge()
+                                ->color(fn (string $state): string => match ($state) {
+                                    'Sin Oferta' => 'danger',
+                                    'En Proceso' => 'warning',
+                                    'Finalizada' => 'success',
+                                    default => 'gray'
+                                })
+                                ->extraAttributes([
+                                    'class' => 'text-sm',
+                                ]),
+
+                            // Agregamos el estado de la puja específico para ResellerAuction
+                            Tables\Columns\TextColumn::make('bid_status')
+                                ->label('Mi Puja')
+                                ->formatStateUsing(fn (string $state): string => "Mi Puja: {$state}")
+                                ->badge()
+                                ->color(fn (Auction $record) => $record->bid_status_color)
+                                ->extraAttributes([
+                                    'class' => 'text-sm',
+                                ]),
+                        ])
+                        ->columns([
+                            'default' => 1,
+                            'sm' => 1,
+                            'md' => 2,
+                        ])
+                        ->extraAttributes([
+                            'class' => 'gap-y-2 p-4',
                         ]),
-                        
-                        // Estado de la puja
-                        Tables\Columns\TextColumn::make('bid_status')
-                            ->label('Mi Puja')
-                            ->badge()
-                            ->color(fn (Auction $record) => $record->bid_status_color),
-                    ]),
-                ])->hiddenFrom('md'), // Se oculta en pantallas md y superiores
+                ])
+                ->space(3)
+                ->extraAttributes([
+                    'class' => 'rounded-xl shadow-sm',
+                ]),
+            ])
+            ->contentGrid([
+                'default' => 1,
+                'sm' => 1,
+                'md' => 2,
+                'xl' => 3,
             ])
             ->actions([
                 ViewAction::make()
                     ->visible(fn (Auction $record) => $record->canBid()),
             ])
             ->defaultSort('end_date', 'asc')
-            ->poll('10s')
             ->filters([
                 // Filtros de estado
                 SelectFilter::make('status_id')
@@ -254,7 +331,7 @@ class ResellerAuctionResource extends Resource
                                     ->numeric()
                                     ->prefix('$')
                                     ->placeholder('100,000'),
-                            ])
+                            ]),
                     ])
                     ->query(function (Builder $query, array $data): Builder {
                         return $query
@@ -270,61 +347,22 @@ class ResellerAuctionResource extends Resource
                     ->indicateUsing(function (array $data): array {
                         $indicators = [];
                         if ($data['price_from'] ?? null) {
-                            $indicators[] = Indicator::make('Precio mínimo: $' . number_format($data['price_from']))
-                                ->removeField('price_from');
+                            $indicators[] = Indicator::make('Precio mínimo: $' . number_format($data['price_from']));
                         }
                         if ($data['price_to'] ?? null) {
-                            $indicators[] = Indicator::make('Precio máximo: $' . number_format($data['price_to']))
-                                ->removeField('price_to');
+                            $indicators[] = Indicator::make('Precio máximo: $' . number_format($data['price_to']));
                         }
                         return $indicators;
                     }),
 
-                // Filtro de rango de fechas
-                Filter::make('date_range')
-                    ->form([
-                        Grid::make(2)
-                            ->schema([
-                                DatePicker::make('created_from')
-                                    ->label('Desde')
-                                    ->placeholder('Seleccione fecha')
-                                    ->closeOnDateSelection(),
-                                DatePicker::make('created_until')
-                                    ->label('Hasta')
-                                    ->placeholder('Seleccione fecha')
-                                    ->closeOnDateSelection(),
-                            ])
-                    ])
-                    ->columnSpan(2)
-                    ->query(function (Builder $query, array $data): Builder {
-                        return $query
-                            ->when(
-                                $data['created_from'],
-                                fn(Builder $query, $date): Builder => $query->whereDate('start_date', '>=', $date),
-                            )
-                            ->when(
-                                $data['created_until'],
-                                fn(Builder $query, $date): Builder => $query->whereDate('start_date', '<=', $date),
-                            );
-                    })
-                    ->indicateUsing(function (array $data): array {
-                        $indicators = [];
-                        if ($data['created_from'] ?? null) {
-                            $indicators[] = Indicator::make('Desde: ' . Carbon::parse($data['created_from'])->format('d/m/Y'));
-                        }
-                        if ($data['created_until'] ?? null) {
-                            $indicators[] = Indicator::make('Hasta: ' . Carbon::parse($data['created_until'])->format('d/m/Y'));
-                        }
-                        return $indicators;
-                    }),
-
-                // Filtro de detalles del vehículo
-                SelectFilter::make('vehicle_details')
+                // Filtros de vehículo
+                Filter::make('vehicle_details')
                     ->form([
                         Grid::make(2)
                             ->schema([
                                 Select::make('brand_id')
                                     ->label('Marca')
+                                    ->placeholder('Marca...')
                                     ->searchable()
                                     ->preload()
                                     ->options(fn() => \App\Models\CatalogValue::query()
@@ -335,6 +373,7 @@ class ResellerAuctionResource extends Resource
                                     ->reactive(),
                                 Select::make('model_id')
                                     ->label('Modelo')
+                                    ->placeholder('Modelo...')
                                     ->searchable()
                                     ->preload()
                                     ->options(function (callable $get) {
@@ -346,14 +385,9 @@ class ResellerAuctionResource extends Resource
                                             : [];
                                     })
                                     ->reactive(),
-                                TextInput::make('year_made')
-                                    ->label('Año')
-                                    ->numeric()
-                                    ->minValue(1900)
-                                    ->maxValue(date('Y'))
-                                    ->placeholder('Ej: 2020'),
                                 Select::make('location_id')
                                     ->label('Ubicación')
+                                    ->placeholder('Ubicación...')
                                     ->searchable()
                                     ->preload()
                                     ->options(fn() => \App\Models\CatalogValue::query()
@@ -361,7 +395,13 @@ class ResellerAuctionResource extends Resource
                                         ->where('catalog_types.name', 'ubicacion')
                                         ->where('catalog_values.active', true)
                                         ->pluck('catalog_values.value', 'catalog_values.id')),
-                            ])
+                                TextInput::make('year_made')
+                                    ->label('Año')
+                                    ->numeric()
+                                    ->minValue(1900)
+                                    ->maxValue(date('Y'))
+                                    ->placeholder('Ej: 2020'),
+                            ]),
                     ])
                     ->query(function (Builder $query, array $data): Builder {
                         return $query->whereHas('vehicle', function (Builder $query) use ($data) {
@@ -374,7 +414,6 @@ class ResellerAuctionResource extends Resource
                     })
                     ->indicateUsing(function (array $data): array {
                         $indicators = [];
-                        
                         if ($brandName = \App\Models\CatalogValue::find($data['brand_id'] ?? null)?->value) {
                             $indicators[] = Indicator::make("Marca: {$brandName}");
                         }
@@ -387,19 +426,19 @@ class ResellerAuctionResource extends Resource
                         if ($locationName = \App\Models\CatalogValue::find($data['location_id'] ?? null)?->value) {
                             $indicators[] = Indicator::make("Ubicación: {$locationName}");
                         }
-                        
                         return $indicators;
                     }),
             ], layout: FiltersLayout::Modal)
-            ->filtersFormColumns(3)
+            ->filtersFormColumns(2)
             ->filtersTriggerAction(
                 fn ($action) => $action
                     ->button()
                     ->label('Filtros')
                     ->icon('heroicon-m-funnel')
+                    ->size('sm')
+                    ->color('gray')
             );
-        }
-    
+    }
 
     public static function canCreate(): bool
     {
@@ -436,15 +475,27 @@ class ResellerAuctionResource extends Resource
                                     ->size('xl')
                                     ->weight('bold')
                                     ->color('success')
-                                    ->icon('heroicon-o-currency-dollar'),
+                                    ->icon('heroicon-o-currency-dollar')
+                                    ->extraAttributes(['wire:poll.5s' => '']),
                             ]),
                         \Filament\Infolists\Components\Grid::make(2)
                             ->schema([
                                 \Filament\Infolists\Components\TextEntry::make('end_date')
-                                    ->label('Finaliza en')
-                                    ->formatStateUsing(fn ($state) => now()->diff($state)->format('%d días %h horas %i minutos'))
-                                    ->icon('heroicon-o-clock')
-                                    ->color('warning'),
+                                    ->label(fn ($record) => $record->start_date > now() ? 'Inicia en' : 'Finaliza en')
+                                    ->formatStateUsing(function ($state, $record) {
+                                        $now = now();
+                                        
+                                        // Si la subasta aún no ha iniciado
+                                        if ($record->start_date > $now) {
+                                            return now()->diff($record->start_date)->format('%d días %h horas %i minutos %s segundos');
+                                        }
+                                        
+                                        // Si la subasta ya inició
+                                        return now()->diff($state)->format('%d días %h horas %i minutos %s segundos');
+                                    })
+                                    ->icon(fn ($record) => $record->start_date > now() ? 'heroicon-o-calendar' : 'heroicon-o-clock')
+                                    ->color(fn ($record) => $record->start_date > now() ? 'warning' : 'success')
+                                    ->extraAttributes(['wire:poll.5s' => '']),
                                 \Filament\Infolists\Components\TextEntry::make('bid_status')
                                     ->label('Estado de mi Puja')
                                     ->badge()
@@ -453,7 +504,8 @@ class ResellerAuctionResource extends Resource
                                         'Puja Líder' => 'heroicon-o-trophy',
                                         'Puja Superada' => 'heroicon-o-arrow-trending-down',
                                         default => 'heroicon-o-minus-circle'
-                                    }),
+                                    })
+                                    ->extraAttributes(['wire:poll.5s' => '']),
                             ]),
                     ])
                     ->columnSpanFull()
