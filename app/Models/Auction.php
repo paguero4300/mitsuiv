@@ -217,13 +217,30 @@ class Auction extends Model
             if (empty($auction->status_id)) {
                 $auction->status_id = \App\Models\AuctionStatus::where('slug', 'sin-oferta')->first()->id;
             }
+
+            // Asegurar que las fechas estén en zona horaria de Lima
+            if ($auction->start_date) {
+                $auction->start_date = $auction->start_date->timezone('America/Lima');
+            }
+            if ($auction->end_date) {
+                $auction->end_date = $auction->end_date->timezone('America/Lima');
+            }
         });
 
         static::created(function ($auction) {
             \Illuminate\Support\Facades\Log::info('Auction Model: Evento created disparado', [
                 'auction_id' => $auction->id,
-                'class' => get_class($auction)
+                'class' => get_class($auction),
+                'start_date' => $auction->start_date->format('Y-m-d H:i:s'),
+                'end_date' => $auction->end_date->format('Y-m-d H:i:s'),
+                'timezone' => $auction->start_date->timezone->getName()
             ]);
         });
+    }
+
+    // Asegurar que las fechas se devuelvan en zona horaria de Lima
+    protected function serializeDate(\DateTimeInterface $date)
+    {
+        return $date->timezone('America/Lima');
     }
 }

@@ -51,14 +51,7 @@ class AuctionNotificationService
     {
         Log::info('Buscando usuarios con rol: ' . $role);
 
-        $users = DB::table('users')
-            ->select('users.*')
-            ->join('model_has_roles', function($join) {
-                $join->on('users.id', '=', 'model_has_roles.model_id')
-                    ->where('model_has_roles.model_type', '=', 'App\\Models\\User');
-            })
-            ->join('roles', 'model_has_roles.role_id', '=', 'roles.id')
-            ->where('roles.name', '=', $role)
+        $users = User::role($role)
             ->whereRaw("JSON_EXTRACT(custom_fields, '$.phone') IS NOT NULL")
             ->get();
 
@@ -67,7 +60,7 @@ class AuctionNotificationService
             'users' => $users->map(fn($user) => [
                 'id' => $user->id,
                 'email' => $user->email,
-                'phone' => json_decode($user->custom_fields)->phone ?? null
+                'phone' => data_get($user->custom_fields, 'phone')
             ])->toArray()
         ]);
 
@@ -158,7 +151,13 @@ class AuctionNotificationService
         // 4. Obtener usuarios revendedores
         $revendedores = $this->getUsersByRole('revendedor');
         Log::info('4. Búsqueda de revendedores:', [
-            'total_encontrados' => $revendedores->count()
+            'total_encontrados' => $revendedores->count(),
+            'lista_revendedores' => $revendedores->map(fn($r) => [
+                'id' => $r->id,
+                'nombre' => $r->name,
+                'email' => $r->email,
+                'telefono' => data_get($r->custom_fields, 'phone') ?? 'NO CONFIGURADO'
+            ])->toArray()
         ]);
         if ($revendedores->isEmpty()) {
             Log::warning('❌ No se encontraron revendedores con WhatsApp configurado - Notificación cancelada');
@@ -166,30 +165,44 @@ class AuctionNotificationService
         }
         Log::info('✅ Se encontraron revendedores para notificar');
 
+        $notificacionesEnviadas = 0;
+        $notificacionesFallidas = 0;
+
         foreach ($revendedores as $revendedor) {
             Log::info('=== Procesando revendedor ===', [
-                'user_id' => $revendedor->id,
-                'email' => $revendedor->email
+                'id' => $revendedor->id,
+                'nombre' => $revendedor->name,
+                'email' => $revendedor->email,
+                'roles' => $revendedor->roles->pluck('name')->toArray()
             ]);
 
             // 5. Validar que no se haya enviado la notificación previamente
             $notificationSent = $this->isNotificationSent('nueva_subasta', 'whatsapp', $revendedor->id, $auctionData['id']);
             Log::info('5. Validación de notificación previa:', [
                 'ya_enviada' => $notificationSent ? 'SÍ' : 'NO',
-                'user_id' => $revendedor->id
+                'user_id' => $revendedor->id,
+                'nombre' => $revendedor->name
             ]);
             if ($notificationSent) {
-                Log::info('⏩ Notificación ya enviada al revendedor - Saltando');
+                Log::info('⏩ Notificación ya enviada al revendedor - Saltando', [
+                    'nombre' => $revendedor->name,
+                    'email' => $revendedor->email
+                ]);
                 continue;
             }
 
-            $phone = data_get(json_decode($revendedor->custom_fields), 'phone');
+            $phone = data_get($revendedor->custom_fields, 'phone');
             Log::info('6. Validación de teléfono:', [
                 'tiene_telefono' => $phone ? 'SÍ' : 'NO',
-                'telefono' => $phone ?? 'NO CONFIGURADO'
+                'telefono' => $phone ?? 'NO CONFIGURADO',
+                'nombre' => $revendedor->name
             ]);
             if (!$phone) {
-                Log::warning('⚠️ Revendedor sin número de teléfono configurado - Saltando');
+                Log::warning('⚠️ Revendedor sin número de teléfono configurado - Saltando', [
+                    'nombre' => $revendedor->name,
+                    'email' => $revendedor->email
+                ]);
+                $notificacionesFallidas++;
                 continue;
             }
 
@@ -208,8 +221,12 @@ class AuctionNotificationService
 
             try {
                 Log::info('7. Intentando enviar mensaje:', [
-                    'user_id' => $revendedor->id,
-                    'phone' => $phone,
+                    'destinatario' => [
+                        'id' => $revendedor->id,
+                        'nombre' => $revendedor->name,
+                        'email' => $revendedor->email,
+                        'telefono' => $phone
+                    ],
                     'message' => $message
                 ]);
 
@@ -224,19 +241,41 @@ class AuctionNotificationService
                     $auctionData
                 );
 
+                $notificacionesEnviadas++;
                 Log::info('✅ Notificación enviada exitosamente', [
-                    'user_id' => $revendedor->id,
+                    'destinatario' => [
+                        'id' => $revendedor->id,
+                        'nombre' => $revendedor->name,
+                        'email' => $revendedor->email,
+                        'telefono' => $phone
+                    ],
                     'auction_id' => $auctionData['id']
                 ]);
             } catch (\Exception $e) {
+                $notificacionesFallidas++;
                 Log::error('❌ Error enviando notificación', [
-                    'user_id' => $revendedor->id,
+                    'destinatario' => [
+                        'id' => $revendedor->id,
+                        'nombre' => $revendedor->name,
+                        'email' => $revendedor->email,
+                        'telefono' => $phone
+                    ],
                     'error' => $e->getMessage(),
                     'trace' => $e->getTraceAsString()
                 ]);
             }
         }
 
-        Log::info('=== FIN DEL PROCESO DE NOTIFICACIÓN ===');
+        Log::info('=== RESUMEN DEL PROCESO DE NOTIFICACIÓN ===', [
+            'total_revendedores' => $revendedores->count(),
+            'notificaciones_enviadas' => $notificacionesEnviadas,
+            'notificaciones_fallidas' => $notificacionesFallidas,
+            'subasta' => [
+                'id' => $auctionData['id'],
+                'vehiculo' => $auctionData['vehiculo'],
+                'inicio' => $auctionData['fecha_inicio'],
+                'fin' => $auctionData['fecha_fin']
+            ]
+        ]);
     }
 } 

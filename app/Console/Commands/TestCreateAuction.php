@@ -18,6 +18,9 @@ class TestCreateAuction extends Command
 
     public function handle()
     {
+        // Configurar zona horaria de Lima/Perú
+        date_default_timezone_set('America/Lima');
+        
         $this->info('Creando subasta de prueba...');
 
         // Obtener un tasador
@@ -117,7 +120,7 @@ class TestCreateAuction extends Command
         // Crear la subasta
         try {
             $duration_hours = 72; // 3 días en horas
-            $start_date = now()->addHour();
+            $start_date = now()->timezone('America/Lima'); // Inicio inmediato en hora de Lima
             $end_date = $start_date->copy()->addHours($duration_hours);
             
             $auction = Auction::create([
@@ -166,10 +169,26 @@ class TestCreateAuction extends Command
                     ['Inicio', $auction->start_date->format('d/m/Y H:i')],
                     ['Fin', $auction->end_date->format('d/m/Y H:i')],
                     ['Duración', $auction->duration_hours . ' horas'],
-                    ['Precio Base', '$' . number_format($auction->base_price, 2)],
-                    ['Notificación', 'Se enviará a: 51933300793'],
+                    ['Precio Base', '$' . number_format($auction->base_price, 2)]
                 ]
             );
+
+            // Mostrar destinatarios de la notificación
+            $revendedores = \App\Models\User::role('revendedor')->get();
+            if ($revendedores->isNotEmpty()) {
+                $this->info("\nDestinatarios de la notificación:");
+                $this->table(
+                    ['ID', 'Nombre', 'Email', 'Teléfono'],
+                    $revendedores->map(fn($r) => [
+                        $r->id,
+                        $r->name,
+                        $r->email,
+                        data_get($r->custom_fields, 'phone', 'NO CONFIGURADO')
+                    ])->toArray()
+                );
+            } else {
+                $this->warn("\nNo se encontraron revendedores para notificar.");
+            }
 
             $this->info('El observer debería haber disparado el job de notificación.');
             $this->info('Revisa los logs para ver el resultado del envío.');

@@ -22,7 +22,9 @@ class AuctionObserver
             'auction_id' => $auction->id,
             'vehicle_id' => $auction->vehicle_id,
             'observer_class' => get_class($this),
-            'model_class' => get_class($auction)
+            'model_class' => get_class($auction),
+            'start_date' => $auction->start_date->timezone('America/Lima')->format('Y-m-d H:i:s'),
+            'end_date' => $auction->end_date->timezone('America/Lima')->format('Y-m-d H:i:s')
         ]);
 
         try {
@@ -30,8 +32,8 @@ class AuctionObserver
             $auctionData = [
                 'id' => $auction->id,
                 'vehiculo' => $auction->vehicle->plate ?? 'N/A',
-                'fecha_inicio' => $auction->start_date->format('d/m/Y H:i'),
-                'fecha_fin' => $auction->end_date->format('d/m/Y H:i'),
+                'fecha_inicio' => $auction->start_date->timezone('America/Lima')->format('d/m/Y H:i'),
+                'fecha_fin' => $auction->end_date->timezone('America/Lima')->format('d/m/Y H:i'),
             ];
 
             Log::info('AuctionObserver: Datos preparados para notificación', $auctionData);

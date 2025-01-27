@@ -16,7 +16,10 @@ class UpdateAuctionStatuses extends Command
 
     public function handle()
     {
-        $now = now();
+        // Configurar zona horaria
+        date_default_timezone_set('America/Lima');
+        
+        $now = now()->timezone('America/Lima');
         
         // 1. Procesar subastas que necesitan finalizar (Sin Oferta o En Proceso)
         $this->processEndingAuctions($now);
