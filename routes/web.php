@@ -5,7 +5,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\MetaWaController;
 
 Route::get('/', function () {
-    return view('welcome');
+    return redirect('/admin');
 });
 
 Route::post('/api/send-whatsapp', [NotificationController::class, 'sendWhatsapp'])
