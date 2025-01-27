@@ -36,6 +36,7 @@ use Filament\Tables\Columns\Layout\Split;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\Layout\Stack;
+use Filament\Notifications\Notification;
                                                                                                                                                                                                                                                                                                                                                                                                                                
 
 class ResellerAuctionResource extends Resource 
@@ -303,9 +304,24 @@ class ResellerAuctionResource extends Resource
                 'xl' => 3,
             ])
             ->actions([
-                ViewAction::make()
-                    ->visible(fn (Auction $record) => $record->canBid()),
+                Tables\Actions\ViewAction::make()
+                    ->visible(fn (Auction $record) => $record->canBid())
+                    ->before(function (Auction $record) {
+                        if (!$record->canBid()) {
+                            Notification::make()
+                                ->warning()
+                                ->title('Subasta no disponible')
+                                ->body('Esta subasta ya no está disponible para ofertas.')
+                                ->persistent()
+                                ->send();
+                            
+                            return false;
+                        }
+                    }),
             ])
+            ->recordUrl(fn (Auction $record): ?string => 
+                $record->canBid() ? static::getUrl('view', ['record' => $record]) : null
+            )
             ->defaultSort('end_date', 'asc')
             ->filters([
                 // Filtros de estado

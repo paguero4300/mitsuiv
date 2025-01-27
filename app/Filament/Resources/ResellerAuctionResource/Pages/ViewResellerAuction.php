@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use App\Models\Bid;
 use Illuminate\Support\Facades\DB;
+use Filament\Notifications\Notification;
 
 class ViewResellerAuction extends ViewRecord
 {
@@ -111,5 +112,10 @@ class ViewResellerAuction extends ViewRecord
         $data['is_leading'] = $this->record->bid_status === 'Puja Líder';
         
         return $data;
+    }
+
+    protected function authorizeAccess(): void
+    {
+        parent::authorizeAccess();
     }
 }
