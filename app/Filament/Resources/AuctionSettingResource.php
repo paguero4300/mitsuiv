@@ -15,10 +15,10 @@ class AuctionSettingResource extends Resource
 {
     protected static ?string $model = AuctionSetting::class;
     protected static ?string $navigationIcon = 'heroicon-o-cog';
-    protected static ?string $navigationLabel = 'Configuración';
+    protected static ?string $navigationLabel = 'General';
     protected static ?string $pluralModelLabel = 'Configuraciones de Subastas';
     protected static ?string $modelLabel = 'Incrementos';
-    protected static ?string $navigationGroup = 'Configuración Subastas';
+    protected static ?string $navigationGroup = 'Configuración';
     protected static ?int $navigationSort = 1;
 
     public static function form(Form $form): Form

@@ -28,7 +28,7 @@ class CatalogTypeResource extends Resource
     protected static ?string $pluralLabel = 'Tipos';
 
 
-    protected static ?string $navigationGroup = 'Catálogos del Sistema';
+    protected static ?string $navigationGroup = 'Catálogos';
 
     // Deshabilitamos la creación de nuevos registros
     public static function canCreate(): bool

@@ -17,7 +17,7 @@ return [
      * ---------------------------------------------
      * The Group name of the resource.
      */
-    'group' => 'Configuracion',
+    'group' => 'Gestion',
 
     /**
      * ---------------------------------------------

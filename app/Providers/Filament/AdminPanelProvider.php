@@ -72,7 +72,7 @@ class AdminPanelProvider extends PanelProvider
                     ->slug('mi-perfil')
                     ->setTitle('Mi Perfil')
                     ->setNavigationLabel('Mi Perfil')
-                    ->setNavigationGroup('Configuracion')
+                    ->setNavigationGroup('Gestion')
                     ->shouldShowDeleteAccountForm(false)
                     ->shouldShowEditProfileForm(false)
                     ->setIcon('heroicon-o-user'),

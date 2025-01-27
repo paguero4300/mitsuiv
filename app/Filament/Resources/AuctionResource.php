@@ -59,7 +59,7 @@ class AuctionResource extends Resource
     protected static ?string $pluralModelLabel = 'Subastas';
     protected static ?string $modelLabel = 'Subasta';
     protected static ?string $recordTitleAttribute = 'Subasta';
-    protected static ?string $navigationGroup = 'Configuración Subastas';
+    protected static ?string $navigationGroup = 'Subastas y Vehículos';
     protected static ?string $slug = 'admin-auctions';
 
 

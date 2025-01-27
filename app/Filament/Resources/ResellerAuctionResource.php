@@ -42,7 +42,7 @@ use Filament\Notifications\Notification;
 class ResellerAuctionResource extends Resource 
 {
     protected static ?string $model = ResellerAuction::class;
-    protected static ?string $navigationGroup = 'Revendedor';
+    protected static ?string $navigationGroup = 'Subastas y Vehículos';
     protected static ?string $navigationIcon = 'heroicon-o-currency-dollar';
     protected static ?string $modelLabel = 'Subasta';
     protected static ?string $pluralModelLabel = 'Subastas';

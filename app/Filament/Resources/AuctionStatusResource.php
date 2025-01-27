@@ -18,7 +18,7 @@ class AuctionStatusResource extends Resource
     protected static ?string $pluralLabel = 'Estados de Subasta';
     protected static ?string $modelLabel = 'Estado de Subasta';
     protected static ?string $modelLabelPlural = 'Estados de Subasta';
-    protected static ?string $navigationGroup = 'Configuración Subastas';
+    protected static ?string $navigationGroup = 'Configuración';
     protected static ?int $navigationSort = 2;
 
     public static function form(Form $form): Form

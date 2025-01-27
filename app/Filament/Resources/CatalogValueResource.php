@@ -32,7 +32,7 @@ class CatalogValueResource extends Resource
     protected static ?string $pluralLabel = 'Valores';
 
     // Grupo de navegación
-    protected static ?string $navigationGroup = 'Catálogos del Sistema';
+    protected static ?string $navigationGroup = 'Catálogos';
 
     /**
      * Formulario para crear y editar registros.
