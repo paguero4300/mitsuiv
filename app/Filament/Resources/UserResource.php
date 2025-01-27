@@ -11,14 +11,12 @@ use Filament\Resources\Resource;
 use Illuminate\Support\Facades\Hash;
 use Filament\Tables\Actions\EditAction;
 use Filament\Tables\Actions\ViewAction;
-use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Forms\Components\TextInput;
-use Filament\Tables\Actions\ActionGroup;
-use Filament\Tables\Actions\DeleteAction;
+use Filament\Forms\Components\Section;
+use Filament\Forms\Components\Grid;
 use Illuminate\Database\Eloquent\Builder;
 use App\Filament\Resources\UserResource\Pages;
-use STS\FilamentImpersonate\Tables\Actions\Impersonate;
 
 class UserResource extends Resource
 {
@@ -27,6 +25,8 @@ class UserResource extends Resource
     protected static ?int $navigationSort = 9;
 
     protected static ?string $navigationIcon = 'heroicon-o-lock-closed';
+
+    protected static bool $shouldCreateAnother = false;
 
     public static function getNavigationLabel(): string
     {
@@ -55,70 +55,104 @@ class UserResource extends Resource
 
     public static function form(Form $form): Form
     {
-        $rows = [
-            TextInput::make('name')
-                ->required()
-                ->label(trans('filament-users::user.resource.name')),
-            TextInput::make('email')
-                ->email()
-                ->required()
-                ->label(trans('filament-users::user.resource.email')),
-            TextInput::make('password')
-                ->label(trans('filament-users::user.resource.password'))
-                ->password()
-                ->maxLength(255)
-                ->dehydrateStateUsing(static function ($state, $record) use ($form) {
-                    return !empty($state)
-                        ? Hash::make($state)
-                        : $record->password;
-                }),
-        ];
+        return $form->schema([
+            Section::make('Información del Usuario')
+                ->description('Ingresa la información básica del usuario.')
+                ->icon('heroicon-o-user')
+                ->columns(2)
+                ->schema([
+                    TextInput::make('name')
+                        ->required()
+                        ->placeholder('Nombre completo')
+                        ->label(trans('filament-users::user.resource.name'))
+                        ->columnSpan(1),
+                    TextInput::make('email')
+                        ->email()
+                        ->required()
+                        ->unique(ignoreRecord: true)
+                        ->placeholder('correo@ejemplo.com')
+                        ->label(trans('filament-users::user.resource.email'))
+                        ->disabled(fn ($record) => $record !== null)
+                        ->dehydrated(true)
+                        ->columnSpan(1),
+                    TextInput::make('custom_fields.phone')
+                        ->label('Teléfono')
+                        ->tel()
+                        ->placeholder('51999999999')
+                        ->helperText('Ingrese el número con formato 51 + 9 dígitos. Ejemplo: 51999999999')
+                        ->regex('/^51[0-9]{9}$/')
+                        ->validationAttribute('teléfono')
+                        ->columnSpan(1),
+                ]),
 
-
-        if (config('filament-users.shield') && class_exists(\BezhanSalleh\FilamentShield\FilamentShield::class)) {
-            $rows[] = Forms\Components\Select::make('roles')
-                ->multiple()
-                ->preload()
-                ->relationship('roles', 'name')
-                ->label(trans('filament-users::user.resource.roles'));
-        }
-
-        $form->schema($rows);
-
-        return $form;
+            Section::make('Seguridad')
+                ->description('Gestión de contraseña y roles del usuario.')
+                ->icon('heroicon-o-lock-closed')
+                ->columns(2)
+                ->schema([
+                    Forms\Components\Toggle::make('change_password')
+                        ->label('¿Cambiar contraseña?')
+                        ->default(false)
+                        ->visible(fn ($record) => $record !== null && !$record->hasRole('super_admin'))
+                        ->columnSpan(2),
+                    TextInput::make('password')
+                        ->label(trans('filament-users::user.resource.password'))
+                        ->password()
+                        ->required(fn ($record) => ! $record)
+                        ->visible(fn ($get, $record) => (!$record || $get('change_password')) && (!$record || !$record->hasRole('super_admin')))
+                        ->minLength(8)
+                        ->placeholder('Mínimo 8 caracteres')
+                        ->dehydrated(fn ($state) => filled($state))
+                        ->dehydrateStateUsing(static function ($state) {
+                            return filled($state) ? Hash::make($state) : null;
+                        })
+                        ->columnSpan(2),
+                    Forms\Components\Select::make('roles')
+                        ->multiple()
+                        ->preload()
+                        ->relationship('roles', 'name')
+                        ->visible(fn () => config('filament-users.shield') && class_exists(\BezhanSalleh\FilamentShield\FilamentShield::class))
+                        ->disabled(fn ($record) => $record && $record->hasRole('super_admin'))
+                        ->label(trans('filament-users::user.resource.roles'))
+                        ->columnSpan(2),
+                ])
+        ]);
     }
 
     public static function table(Table $table): Table
     {
-        if(class_exists( STS\FilamentImpersonate\Tables\Actions\Impersonate::class) && config('filament-users.impersonate')){
-            $table->actions([Impersonate::make('impersonate')]);
-        }
-        $table
+        return $table
             ->columns([
-                TextColumn::make('id')
-                    ->sortable()
-                    ->label(trans('filament-users::user.resource.id')),
                 TextColumn::make('name')
                     ->sortable()
                     ->searchable()
-                    ->label(trans('filament-users::user.resource.name')),
-                TextColumn::make('email')
-                    ->sortable()
-                    ->searchable()
-                    ->label(trans('filament-users::user.resource.email')),
-                IconColumn::make('email_verified_at')
-                    ->boolean()
-                    ->sortable()
-                    ->searchable()
-                    ->label(trans('filament-users::user.resource.email_verified_at')),
-                TextColumn::make('created_at')
-                    ->label(trans('filament-users::user.resource.created_at'))
-                    ->dateTime('M j, Y')
-                    ->sortable(),
-                TextColumn::make('updated_at')
-                    ->label(trans('filament-users::user.resource.updated_at'))
-                    ->dateTime('M j, Y')
-                    ->sortable(),
+                    ->label(trans('filament-users::user.resource.name'))
+                    ->weight('medium')
+                    ->description(fn (User $record): string => $record->email)
+                    ->wrap()
+                    ->toggleable(),
+                TextColumn::make('custom_fields.phone')
+                    ->label('Teléfono')
+                    ->formatStateUsing(fn ($state) => $state ? "{$state}" : '-')
+                    ->wrap()
+                    ->copyable()
+                    ->copyMessage('Teléfono copiado')
+                    ->copyMessageDuration(1500)
+                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('roles.name')
+                    ->label('Perfil')
+                    ->badge()
+                    ->formatStateUsing(fn ($state) => ucfirst($state))
+                    ->color(fn (string $state): string => match (strtolower($state)) {
+                        'super_admin' => 'danger',
+                        'admin' => 'danger',
+                        'manager' => 'warning',
+                        'editor' => 'success',
+                        'user' => 'info',
+                        default => 'gray',
+                    })
+                    ->visible(fn () => config('filament-users.shield') && class_exists(\BezhanSalleh\FilamentShield\FilamentShield::class))
+                    ->toggleable()
             ])
             ->filters([
                 Tables\Filters\Filter::make('verified')
@@ -129,20 +163,34 @@ class UserResource extends Resource
                     ->query(fn(Builder $query): Builder => $query->whereNull('email_verified_at')),
             ])
             ->actions([
-                ActionGroup::make([
-                    ViewAction::make(),
-                    EditAction::make(),
-                    DeleteAction::make()
-                ]),
-            ]);
-        return $table;
+                Tables\Actions\ActionGroup::make([
+                    Tables\Actions\ViewAction::make()
+                        ->label('Ver')
+                        ->color('info'),
+                    Tables\Actions\EditAction::make()
+                        ->label('Editar')
+                        ->visible(fn ($record) => !$record->hasRole('super_admin'))
+                        ->color('warning'),
+                    Tables\Actions\DeleteAction::make()
+                        ->label('Eliminar')
+                        ->visible(fn ($record) => !$record->hasRole('super_admin'))
+                        ->color('danger'),
+                ])
+                ->icon('heroicon-m-cog-6-tooth')
+                ->button()
+                ->color('gray')
+                ->size('sm'),
+            ])
+            ->defaultSort('name', 'asc')
+            ->paginated([10, 25, 50])
+            ->poll('60s')
+            ->striped();
     }
 
     public static function getPages(): array
     {
         return [
             'index' => Pages\ListUsers::route('/'),
-            'create' => Pages\CreateUser::route('/create'),
             'edit' => Pages\EditUser::route('/{record}/edit'),
         ];
     }

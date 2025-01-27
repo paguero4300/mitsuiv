@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\NotificationController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\MetaWaController;
 
 Route::get('/', function () {
     return view('welcome');
@@ -10,5 +11,5 @@ Route::get('/', function () {
 Route::post('/api/send-whatsapp', [NotificationController::class, 'sendWhatsapp'])
     ->name('whatsapp.send');
 
-    Route::post('/send-meta-wa', [MetaWaController::class, 'sendMessage'])
+    Route::post('/api/send-meta-wa', [MetaWaController::class, 'sendMessage'])
     ->name('send.meta.wa');

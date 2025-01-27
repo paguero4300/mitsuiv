@@ -18,6 +18,7 @@ class User extends Authenticatable implements FilamentUser
         'name',
         'email',
         'password',
+        'custom_fields',
     ];
 
     protected $hidden = [
@@ -25,13 +26,11 @@ class User extends Authenticatable implements FilamentUser
         'remember_token',
     ];
 
-    protected function casts(): array
-    {
-        return [
-            'email_verified_at' => 'datetime',
-            'password' => 'hashed',
-        ];
-    }
+    protected $casts = [
+        'email_verified_at' => 'datetime',
+        'password' => 'hashed',
+        'custom_fields' => 'array',
+    ];
 
     // Método requerido por FilamentUser
     public function canAccessPanel(Panel $panel): bool

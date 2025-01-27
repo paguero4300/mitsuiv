@@ -9,7 +9,7 @@ return [
      * If you want to use your own resource, you can set this to true.
      * and use `php artisan filament-user:publish` to publish the resource.
      */
-    'publish_resource' => false,
+    'publish_resource' => true,
 
     /**
      * ---------------------------------------------
@@ -41,7 +41,7 @@ return [
      * ---------------------------------------------
      * change the resource from pages to modals by allow simple resource.
      */
-    'simple' => true,
+    'simple' => false,
 
     /**
      * ---------------------------------------------
