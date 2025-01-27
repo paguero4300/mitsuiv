@@ -218,5 +218,12 @@ class Auction extends Model
                 $auction->status_id = \App\Models\AuctionStatus::where('slug', 'sin-oferta')->first()->id;
             }
         });
+
+        static::created(function ($auction) {
+            \Illuminate\Support\Facades\Log::info('Auction Model: Evento created disparado', [
+                'auction_id' => $auction->id,
+                'class' => get_class($auction)
+            ]);
+        });
     }
 }

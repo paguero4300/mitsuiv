@@ -2,8 +2,11 @@
 
 namespace App\Providers;
 
+use App\Models\Auction;
+use App\Observers\AuctionObserver;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -21,5 +24,8 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         DB::enableQueryLog();
+        Log::info('AppServiceProvider: Registrando observers...');
+        Auction::observe(AuctionObserver::class);
+        Log::info('AppServiceProvider: Observer de Auction registrado');
     }
 }
