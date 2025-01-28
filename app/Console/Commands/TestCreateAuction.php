@@ -142,7 +142,9 @@ class TestCreateAuction extends Command
 
             $this->info('Subasta creada con ID: ' . $auction->id);
             
-            // Probar el servicio de notificación directamente
+            // La notificación será enviada automáticamente por el AuctionObserver
+            // No es necesario enviarla manualmente aquí para evitar duplicados
+            /*
             try {
                 $auctionData = [
                     'id' => $auction->id,
@@ -158,6 +160,7 @@ class TestCreateAuction extends Command
             } catch (\Exception $e) {
                 $this->error('Error enviando notificación: ' . $e->getMessage());
             }
+            */
             
             $this->table(
                 ['Campo', 'Valor'],
