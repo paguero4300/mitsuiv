@@ -127,6 +127,56 @@ class EditVehicle extends EditRecord
             ]);
         }
 
+        // Extraer solo los campos de equipamiento
+        $equipmentData = collect($data)->only([
+            'airbags_count',
+            'air_conditioning',
+            'alarm',
+            'apple_carplay',
+            'wheels',
+            'alloy_wheels',
+            'electric_seats',
+            'leather_seats',
+            'front_camera',
+            'right_camera',
+            'left_camera',
+            'rear_camera',
+            'mono_zone_ac',
+            'multi_zone_ac',
+            'bi_zone_ac',
+            'usb_ports',
+            'steering_controls',
+            'front_fog_lights',
+            'rear_fog_lights',
+            'bi_led_lights',
+            'halogen_lights',
+            'led_lights',
+            'abs_ebs',
+            'security_glass',
+            'anti_collision',
+            'gps',
+            'touch_screen',
+            'speakers',
+            'cd_player',
+            'mp3_player',
+            'electric_mirrors',
+            'parking_sensors',
+            'sunroof',
+            'cruise_control',
+            'roof_rack',
+            'factory_warranty',
+            'complete_documentation',
+            'guaranteed_mileage',
+            'part_payment',
+            'financing'
+        ])->toArray();
+
+        // Actualizar o crear el equipamiento
+        $vehicle->equipment()->updateOrCreate(
+            ['vehicle_id' => $vehicle->id],
+            $equipmentData
+        );
+
         Notification::make()
             ->success()
             ->title('Vehículo y documentos actualizados correctamente')
@@ -160,7 +210,12 @@ class EditVehicle extends EditRecord
             $data['tarjeta_expiry'] = $documents['tarjeta_propiedad']->expiry_date;
         }
 
-        Log::info('mutateFormDataBeforeFill: Precargando documentos', [
+        // Precargar datos de equipamiento
+        if ($equipment = $this->record->equipment) {
+            $data = array_merge($data, $equipment->toArray());
+        }
+
+        Log::info('mutateFormDataBeforeFill: Precargando documentos y equipamiento', [
             'vehicle_id' => $this->record->id,
             'soat_document' => $data['soat_document'] ?? null,
             'soat_expiry' => $data['soat_expiry'] ?? null,
@@ -168,6 +223,7 @@ class EditVehicle extends EditRecord
             'revision_expiry' => $data['revision_expiry'] ?? null,
             'tarjeta_document' => $data['tarjeta_document'] ?? null,
             'tarjeta_expiry' => $data['tarjeta_expiry'] ?? null,
+            'equipment' => $equipment ? true : false
         ]);
 
         return $data;

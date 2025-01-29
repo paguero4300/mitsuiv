@@ -78,6 +78,53 @@ class CreateVehicle extends CreateRecord
             ]);
         }
 
+        // Extraer solo los campos de equipamiento
+        $equipmentData = collect($data)->only([
+            'airbags_count',
+            'air_conditioning',
+            'alarm',
+            'apple_carplay',
+            'wheels',
+            'alloy_wheels',
+            'electric_seats',
+            'leather_seats',
+            'front_camera',
+            'right_camera',
+            'left_camera',
+            'rear_camera',
+            'mono_zone_ac',
+            'multi_zone_ac',
+            'bi_zone_ac',
+            'usb_ports',
+            'steering_controls',
+            'front_fog_lights',
+            'rear_fog_lights',
+            'bi_led_lights',
+            'halogen_lights',
+            'led_lights',
+            'abs_ebs',
+            'security_glass',
+            'anti_collision',
+            'gps',
+            'touch_screen',
+            'speakers',
+            'cd_player',
+            'mp3_player',
+            'electric_mirrors',
+            'parking_sensors',
+            'sunroof',
+            'cruise_control',
+            'roof_rack',
+            'factory_warranty',
+            'complete_documentation',
+            'guaranteed_mileage',
+            'part_payment',
+            'financing'
+        ])->toArray();
+
+        // Crear el equipamiento asociado al vehículo
+        $vehicle->equipment()->create($equipmentData);
+
         Notification::make()
             ->success()
             ->title('Vehículo y documentos creados correctamente')

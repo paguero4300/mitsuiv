@@ -37,6 +37,8 @@ class Auction extends Model
                 'brand_id', 
                 'model_id', 
                 'version',
+                'transmission_id',
+                'body_type_id',
                 'year_made',
                 'model_year',
                 'engine_cc',
