@@ -43,7 +43,7 @@
 
         <div class="flex justify-center gap-2 mt-4 lg:justify-end">
             <x-filament::button
-                color="success"
+                :color="$record->end_date->isPast() ? 'success' : 'gray'"
                 icon="heroicon-m-trophy"
                 size="lg"
                 tag="a"

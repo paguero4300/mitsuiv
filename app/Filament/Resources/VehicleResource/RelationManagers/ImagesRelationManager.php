@@ -19,6 +19,7 @@ use Filament\Tables\Actions\EditAction;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 
 class ImagesRelationManager extends RelationManager
 {
@@ -34,30 +35,38 @@ class ImagesRelationManager extends RelationManager
     {
         return $form
             ->schema([
-                // Campo para subir imágenes con configuraciones específicas
                 FileUpload::make('path')
-                    ->label('Imagen')
+                    ->label('Imágenes')
                     ->image()
+                    ->multiple()
                     ->disk('public')
                     ->directory('vehicle-images')
                     ->required()
                     ->maxSize(5120)
-                    ->maxFiles(1)
+                    ->maxFiles(10)
+                    ->reorderable()
                     ->getUploadedFileNameForStorageUsing(function ($file) {
                         return 'vehicle_image_' . uniqid() . '.' . $file->getClientOriginalExtension();
                     })
-                    ->rules(['required', 'image', 'max:5120']),
+                    ->helperText('Puedes subir hasta 10 imágenes. Máximo 5MB por imagen.')
+                    ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
+                    ->imagePreviewHeight('100')
+                    ->loadingIndicatorPosition('left')
+                    ->panelLayout('grid')
+                    ->imageResizeMode('cover')
+                    ->imageCropAspectRatio('16:9')
+                    ->imageResizeTargetWidth('1920')
+                    ->imageResizeTargetHeight('1080')
+                    ->removeUploadedFileButtonPosition('right')
+                    ->uploadButtonPosition('left')
+                    ->uploadProgressIndicatorPosition('left'),
 
-                // Toggle para marcar una imagen como principal
                 Toggle::make('is_main')
-                    ->label('Imagen Principal')
+                    ->label('Marcar Primera Imagen como Principal')
                     ->default(false)
-                    ->helperText('Marca esta imagen como la principal para la galería.')
-                    ->rules(['boolean'])
-                    ->dehydrated(true) // Asegura que el valor se guarde
-                    ->disabled(function ($record) {
-                        // Deshabilita el toggle si ya es la imagen principal
-                        return $record && $record->is_main;
+                    ->helperText('Si seleccionas esta opción, la primera imagen se marcará como principal.')
+                    ->hidden(function ($record) {
+                        return $record !== null;
                     }),
             ]);
     }
@@ -94,37 +103,66 @@ class ImagesRelationManager extends RelationManager
             ->defaultSort('order', 'asc')
             ->filters([])
             ->headerActions([
-                // Acción para crear nuevas imágenes
                 Tables\Actions\CreateAction::make()
-                    ->label('Añadir Imagen')
+                    ->label('Añadir Imágenes')
                     ->action(function (array $data): void {
                         $vehicle = $this->getOwnerRecord();
-
-                        if ($vehicle->images()->count() >= 10) {
+                        $currentCount = $vehicle->images()->count();
+                        $newImages = is_array($data['path']) ? count($data['path']) : 1;
+                        
+                        // Verificar límite total de imágenes
+                        if (($currentCount + $newImages) > 10) {
                             Notification::make()
-                                ->title('Máximo de imágenes alcanzado')
+                                ->title('Límite de imágenes excedido')
+                                ->body('Solo puedes tener un máximo de 10 imágenes por vehículo.')
                                 ->danger()
                                 ->send();
                             return;
                         }
 
-                        // Asignar el siguiente orden automáticamente
-                        $data['order'] = $vehicle->images()->max('order') + 1;
+                        try {
+                            // Iniciar transacción para asegurar consistencia
+                            \DB::beginTransaction();
 
-                        // Si es la primera imagen, hacerla principal automáticamente
-                        if ($vehicle->images()->count() === 0) {
-                            $data['is_main'] = true;
-                        } elseif (isset($data['is_main']) && $data['is_main']) {
-                            // Si se marca como principal, desmarcar las demás
-                            $vehicle->images()->update(['is_main' => false]);
+                            $paths = is_array($data['path']) ? $data['path'] : [$data['path']];
+                            $nextOrder = $vehicle->images()->max('order') + 1;
+                            $makeFirstMain = $data['is_main'] ?? false;
+
+                            // Si es la primera imagen del vehículo, forzar que sea principal
+                            if ($currentCount === 0) {
+                                $makeFirstMain = true;
+                            }
+
+                            // Si se va a marcar una nueva imagen como principal, desmarcar las existentes
+                            if ($makeFirstMain) {
+                                $vehicle->images()->update(['is_main' => false]);
+                            }
+
+                            // Procesar cada imagen
+                            foreach ($paths as $index => $path) {
+                                $vehicle->images()->create([
+                                    'path' => $path,
+                                    'order' => $nextOrder + $index,
+                                    'is_main' => ($index === 0 && $makeFirstMain),
+                                ]);
+                            }
+
+                            \DB::commit();
+
+                            Notification::make()
+                                ->title($newImages > 1 ? 'Imágenes añadidas correctamente' : 'Imagen añadida correctamente')
+                                ->success()
+                                ->send();
+
+                        } catch (\Exception $e) {
+                            \DB::rollBack();
+                            
+                            Notification::make()
+                                ->title('Error al guardar las imágenes')
+                                ->body('Ocurrió un error al procesar las imágenes. Por favor, intenta nuevamente.')
+                                ->danger()
+                                ->send();
                         }
-
-                        $vehicle->images()->create($data);
-
-                        Notification::make()
-                            ->title('Imagen añadida correctamente')
-                            ->success()
-                            ->send();
                     }),
             ])
             ->actions([
