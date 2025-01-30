@@ -27,5 +27,6 @@ class Kernel extends ConsoleKernel
 
     protected $commands = [
         Commands\TestCreateAuction::class,
+        Commands\CreateDefaultCatalogValues::class,
     ];
 } 

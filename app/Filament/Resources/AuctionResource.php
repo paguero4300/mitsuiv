@@ -103,13 +103,27 @@ class AuctionResource extends Resource
                                             ->format('Y-m-d H:i')
                                             ->displayFormat('d/m/Y H:i')
                                             ->firstDayOfWeek(1)
-                                            ->minDate(now()->timezone('America/Lima')->format('Y-m-d'))
                                             ->helperText('La fecha y hora de inicio debe ser igual o posterior a la hora actual')
                                             ->live()
+                                            ->default(function() {
+                                                $now = now()->timezone('America/Lima');
+                                                return $now->addMinute()->startOfMinute();
+                                            })
                                             ->rules([
                                                 'required',
                                                 'date',
-                                                'after_or_equal:' . now()->timezone('America/Lima')->format('Y-m-d H:i'),
+                                                function () {
+                                                    return function (string $attribute, $value, $fail) {
+                                                        if (empty($value)) return;
+                                                        
+                                                        $startDate = Carbon::parse($value)->timezone('America/Lima');
+                                                        $now = now()->timezone('America/Lima');
+                                                        
+                                                        if ($startDate->timestamp < ($now->timestamp - 30)) {
+                                                            $fail("La fecha y hora de inicio no puede ser anterior a la hora actual ({$now->format('d/m/Y H:i')})");
+                                                        }
+                                                    };
+                                                }
                                             ]),
 
                                         Forms\Components\DateTimePicker::make('end_date')
@@ -150,11 +164,11 @@ class AuctionResource extends Resource
                                             ->required()
                                             ->numeric()
                                             ->prefix('$')
-                                            ->minValue(1)
+                                            ->minValue(0)
                                             ->maxValue(999999999)
                                             ->step(0.01)
                                             ->inputMode('decimal')
-                                            ->helperText('Ingrese el precio base de la subasta (mínimo $1)')
+                                            ->helperText('Ingrese el precio base de la subasta (desde $0)')
                                             ->columnSpanFull(),
 
                                         Forms\Components\Placeholder::make('duration_preview')
@@ -312,21 +326,20 @@ class AuctionResource extends Resource
                                     ->icon('heroicon-o-cog-6-tooth'),
                                 \Filament\Infolists\Components\TextEntry::make('vehicle.bodyType.value')
                                     ->label('Tipo de Carrocería')
-                                    ->icon('heroicon-o-cube'),
+                                    ->icon('heroicon-o-truck'),
                                 \Filament\Infolists\Components\TextEntry::make('vehicle.traction.value')
                                     ->label('Tracción')
-                                    ->icon('heroicon-o-wrench'),
+                                    ->icon('heroicon-o-cog-8-tooth'),
                             ]),
 
                             \Filament\Infolists\Components\Grid::make(3)
                                 ->schema([
                                     \Filament\Infolists\Components\TextEntry::make('vehicle.engine_cc')
                                         ->label('Cilindrada')
-                                        ->icon('heroicon-o-beaker')
+                                        ->icon('heroicon-o-wrench')
                                         ->formatStateUsing(fn($state) => number_format($state) . ' cc'),
                                     \Filament\Infolists\Components\TextEntry::make('vehicle.cylinders.value')
-                                        ->label('Cilindros')
-                                        ->icon('heroicon-o-variable'),
+                                        ->label('Cilindros'),
                                     \Filament\Infolists\Components\TextEntry::make('vehicle.fuelType.value')
                                         ->label('Combustible')
                                         ->icon('heroicon-o-fire'),
@@ -336,7 +349,7 @@ class AuctionResource extends Resource
                                     ->schema([
                                         \Filament\Infolists\Components\TextEntry::make('vehicle.doors.value')
                                             ->label('Puertas')
-                                            ->icon('heroicon-o-swatch'),
+                                            ->icon('heroicon-o-square-2-stack'),
                                         \Filament\Infolists\Components\TextEntry::make('vehicle.color.value')
                                             ->label('Color')
                                             ->icon('heroicon-o-swatch'),
@@ -610,23 +623,8 @@ class AuctionResource extends Resource
                                 
                                 if ($start->gt($now)) {
                                     $interval = $now->diff($start);
-                                    $parts = [];
-                                    
-                                    if ($interval->d > 0) {
-                                        $parts[] = "{$interval->d}d";
-                                    }
-                                    if ($interval->h > 0) {
-                                        $parts[] = "{$interval->h}h";
-                                    }
-                                    if ($interval->i > 0) {
-                                        $parts[] = "{$interval->i}m";
-                                    }
-                                    if ($interval->s > 0) {
-                                        $parts[] = "{$interval->s}s";
-                                    }
-                                    
-                                    $timeLeft = empty($parts) ? "< 1s" : implode(' ', $parts);
-                                    return "{$dateStr} (Inicia en: {$timeLeft})";
+                                    $totalHours = ($interval->days * 24) + $interval->h;
+                                    return "{$dateStr} ({$totalHours}h {$interval->i}m {$interval->s}s)";
                                 }
                                 
                                 return $dateStr;
@@ -692,14 +690,14 @@ class AuctionResource extends Resource
 
                             Tables\Columns\TextColumn::make('base_price')
                                 ->label('Base')
-                                ->formatStateUsing(fn ($state): string => "Base: $ " . number_format($state ?? 0, 2))
+                                ->formatStateUsing(fn ($state): string => "Base: $ " . number_format($state ?? 0, 0, '.', ','))
                                 ->extraAttributes([
                                     'class' => 'text-success-600 font-bold',
                                 ]),
 
                             Tables\Columns\TextColumn::make('current_price')
                                 ->label('Actual')
-                                ->formatStateUsing(fn ($state): string => "Actual: $ " . number_format($state ?? 0, 2))
+                                ->formatStateUsing(fn ($state): string => "Actual: $ " . number_format($state ?? 0, 0, '.', ','))
                                 ->extraAttributes([
                                     'class' => 'text-primary-600 font-bold',
                                 ]),
@@ -719,16 +717,8 @@ class AuctionResource extends Resource
                                     }
 
                                     $remaining = $now->diff($endDate);
-                                    
-                                    if ($remaining->days > 0) {
-                                        return "Tiempo: {$remaining->days}d {$remaining->h}h {$remaining->i}m {$remaining->s}s";
-                                    } elseif ($remaining->h > 0) {
-                                        return "Tiempo: {$remaining->h}h {$remaining->i}m {$remaining->s}s";
-                                    } elseif ($remaining->i > 0) {
-                                        return "Tiempo: {$remaining->i}m {$remaining->s}s";
-                                    } else {
-                                        return "Tiempo: {$remaining->s}s";
-                                    }
+                                    $totalHours = ($remaining->days * 24) + $remaining->h;
+                                    return "Tiempo: {$totalHours}h {$remaining->i}m {$remaining->s}s";
                                 })
                                 ->color(function (Auction $record) {
                                     $now = now()->timezone('America/Lima');
@@ -964,10 +954,10 @@ class AuctionResource extends Resource
                     ->indicateUsing(function (array $data): array {
                         $indicators = [];
                         if ($data['price_from'] ?? null) {
-                            $indicators[] = Indicator::make('Precio mínimo: $' . number_format($data['price_from']));
+                            $indicators[] = Indicator::make('Precio mínimo: $' . number_format($data['price_from'], 0, '.', ','));
                         }
                         if ($data['price_to'] ?? null) {
-                            $indicators[] = Indicator::make('Precio máximo: $' . number_format($data['price_to']));
+                            $indicators[] = Indicator::make('Precio máximo: $' . number_format($data['price_to'], 0, '.', ','));
                         }
                         return $indicators;
                     }),

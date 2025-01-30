@@ -49,15 +49,22 @@ class VehicleResource extends Resource
                         Forms\Components\Grid::make(2)->schema([
                             Forms\Components\TextInput::make('plate')
                                 ->label('Placa')
-                                ->placeholder('Formato: ABC-123')
-                                ->required('El campo placa es obligatorio')
-                                ->unique(table: 'vehicles', column: 'plate', ignoreRecord: true)
-                                ->maxLength(7, 'La placa no debe exceder los 7 caracteres')
-                                ->regex('/^[A-Z0-9]{1,3}-[A-Z0-9]{1,3}$/', 'El formato de placa debe ser XXX-XXX')
-                                ->helperText('La placa debe tener el formato XXX-XXX (letras o números separados por guión)')
+                                ->required()
+                                ->maxLength(7)
+                                ->placeholder('Formato: XXX-XXX')
                                 ->prefixIcon('heroicon-o-identification')
                                 ->formatStateUsing(fn ($state) => strtoupper($state))
-                                ->mask('***-***'),
+                                ->beforeStateDehydrated(fn ($state) => strtoupper($state))
+                                ->regex('/^[A-Z0-9]{3}-[A-Z0-9]{3}$/')
+                                ->validationAttribute('placa')
+                                ->mask('***-***')
+                                ->extraInputAttributes([
+                                    'oninput' => 'this.value = this.value.toUpperCase()',
+                                    'style' => 'text-transform: uppercase'
+                                ])
+                                ->validationMessages([
+                                    'regex' => 'La placa debe tener el formato XXX-XXX (3 caracteres, guión, 3 caracteres)',
+                                ]),
 
                             Forms\Components\Select::make('brand_id')
                                 ->label('Marca')
@@ -110,7 +117,7 @@ class VehicleResource extends Resource
                                 )
                                 ->required('El campo modelo es obligatorio')
                                 ->placeholder('Seleccione un modelo')
-                                ->prefixIcon('heroicon-o-tag')
+                                ->prefixIcon('heroicon-o-truck')
                                 ->searchable()
                                 ->preload()
                                 ->live()
@@ -215,7 +222,7 @@ class VehicleResource extends Resource
                                 ->minValue(100)
                                 ->maxValue(10000)
                                 ->step(1)
-                                ->prefixIcon('heroicon-o-calculator'),
+                                ->prefixIcon('heroicon-o-cog-6-tooth'),
 
                             Forms\Components\Select::make('cylinders_id')
                                 ->label('Cilindros')
@@ -224,7 +231,7 @@ class VehicleResource extends Resource
                                     titleAttribute: 'value',
                                     modifyQueryUsing: fn($query) => $query->whereHas('type', fn($q) => $q->where('name', 'cilindros'))
                                 )
-                                ->prefixIcon('heroicon-o-adjustments-vertical')
+                                ->prefixIcon('heroicon-o-beaker')
                                 ->required('El campo cilindros es obligatorio')
                                 ->placeholder('Seleccione los cilindros')
                                 ->searchable()
@@ -255,18 +262,21 @@ class VehicleResource extends Resource
                                 ->prefixIcon('heroicon-o-map'),
 
                             Forms\Components\Select::make('doors_id')
-                                ->label('Número de Puertas')
+                                ->label('Puertas')
                                 ->relationship(
                                     name: 'doors',
                                     titleAttribute: 'value',
                                     modifyQueryUsing: fn($query) => $query->whereHas('type', fn($q) => $q->where('name', 'puertas'))
                                 )
-                                ->prefixIcon('heroicon-o-key')
-                                ->required('El campo número de puertas es obligatorio')
-                                ->placeholder('Seleccione el número de puertas')
+                                ->placeholder('Seleccione número de puertas')
+                                ->prefixIcon('heroicon-o-rectangle-stack')
                                 ->searchable()
                                 ->preload()
-                                ->live(),
+                                ->default(function() {
+                                    return \App\Models\CatalogValue::whereHas('type', fn($q) => $q->where('name', 'puertas'))
+                                        ->where('value', 'Sin especificar')
+                                        ->first()?->id;
+                                }),
 
                             Forms\Components\Select::make('traction_id')
                                 ->label('Tracción')
@@ -275,7 +285,7 @@ class VehicleResource extends Resource
                                     titleAttribute: 'value',
                                     modifyQueryUsing: fn($query) => $query->whereHas('type', fn($q) => $q->where('name', 'traccion'))
                                 )
-                                ->prefixIcon('heroicon-o-bolt')
+                                ->prefixIcon('heroicon-o-circle-stack')
                                 ->required('El campo tracción es obligatorio')
                                 ->placeholder('Seleccione el tipo de tracción')
                                 ->searchable()
@@ -289,12 +299,15 @@ class VehicleResource extends Resource
                                     titleAttribute: 'value',
                                     modifyQueryUsing: fn($query) => $query->whereHas('type', fn($q) => $q->where('name', 'color'))
                                 )
-                                ->prefixIcon('heroicon-o-swatch')
-                                ->required('El campo color es obligatorio')
                                 ->placeholder('Seleccione un color')
+                                ->prefixIcon('heroicon-o-paint-brush')
                                 ->searchable()
                                 ->preload()
-                                ->live(),
+                                ->default(function() {
+                                    return \App\Models\CatalogValue::whereHas('type', fn($q) => $q->where('name', 'color'))
+                                        ->where('value', 'Sin especificar')
+                                        ->first()?->id;
+                                }),
 
                             Forms\Components\Select::make('location_id')
                                 ->label('Ubicación')

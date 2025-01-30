@@ -168,22 +168,8 @@ class AuctionStatusInfo extends Component
         }
 
         $interval = $now->diff($start);
-        $parts = [];
-
-        if ($interval->d > 0) {
-            $parts[] = "{$interval->d}d";
-        }
-        if ($interval->h > 0) {
-            $parts[] = "{$interval->h}h";
-        }
-        if ($interval->i > 0) {
-            $parts[] = "{$interval->i}m";
-        }
-        if ($interval->s > 0 || empty($parts)) {
-            $parts[] = "{$interval->s}s";
-        }
-
-        return "Inicia en: " . implode(' ', $parts);
+        $totalHours = ($interval->days * 24) + $interval->h;
+        return "Inicia en: {$totalHours}h {$interval->i}m {$interval->s}s";
     }
 
     private function getRemainingTime()
@@ -201,22 +187,8 @@ class AuctionStatusInfo extends Component
         }
 
         $interval = $now->diff($end);
-        $parts = [];
-
-        if ($interval->d > 0) {
-            $parts[] = "{$interval->d}d";
-        }
-        if ($interval->h > 0) {
-            $parts[] = "{$interval->h}h";
-        }
-        if ($interval->i > 0) {
-            $parts[] = "{$interval->i}m";
-        }
-        if ($interval->s > 0 || empty($parts)) {
-            $parts[] = "{$interval->s}s";
-        }
-
-        return implode(' ', $parts);
+        $totalHours = ($interval->days * 24) + $interval->h;
+        return "{$totalHours}h {$interval->i}m {$interval->s}s";
     }
 
     private function getStatusColor(): string
