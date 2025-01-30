@@ -39,7 +39,10 @@ class ListResellerAuctions extends ListRecords
                     
                     $baseQuery->where('status_id', 3) // EN_PROCESO
                         ->where('start_date', '<=', now())
-                        ->where('end_date', '>', now());
+                        ->where('end_date', '>', now())
+                        ->whereHas('bids', function (Builder $query) {
+                            $query->where('reseller_id', Auth::id());
+                        });
                     
                     return $baseQuery;
                 }),
@@ -47,7 +50,10 @@ class ListResellerAuctions extends ListRecords
             'finalizadas' => Tab::make('Finalizadas')
                 ->query(function (Builder $query): Builder {
                     $baseQuery = $query->getModel()->newQuery();
-                    $baseQuery->whereIn('status_id', [4, 5]); // 4=Fallida, 5=Ganada
+                    $baseQuery->whereIn('status_id', [4, 5]) // 4=Fallida, 5=Ganada
+                        ->whereHas('bids', function (Builder $query) {
+                            $query->where('reseller_id', Auth::id());
+                        });
                     
                     return $baseQuery;
                 }),
@@ -55,20 +61,11 @@ class ListResellerAuctions extends ListRecords
             'adjudicadas' => Tab::make('Adjudicadas')
                 ->query(function (Builder $query): Builder {
                     $baseQuery = $query->getModel()->newQuery();
-                    $baseQuery->where('status_id', 6); // ADJUDICADA
-                    
-                    return $baseQuery;
-                }),
-
-            'mis_pujas' => Tab::make('Mis Pujas')
-                ->query(function (Builder $query): Builder {
-                    $baseQuery = $query->getModel()->newQuery();
-                    
-                    $baseQuery->whereHas('bids', function (Builder $query) {
-                        $query->where('reseller_id', Auth::id());
-                    })
-                    ->where('end_date', '>', now())
-                    ->orderBy('end_date', 'asc');
+                    $baseQuery->where('status_id', 6) // ADJUDICADA
+                        ->whereHas('bids', function (Builder $query) {
+                            $query->where('reseller_id', Auth::id())
+                                ->whereRaw('bids.amount = (SELECT MAX(amount) FROM bids WHERE auction_id = auctions.id)');
+                        });
                     
                     return $baseQuery;
                 }),

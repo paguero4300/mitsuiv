@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\Auth;
 
 class Auction extends Model
 {
@@ -27,6 +29,8 @@ class Auction extends Model
         'start_date' => 'datetime',
         'end_date' => 'datetime'
     ];
+
+    protected const TIMEZONE = 'America/Lima';
 
     public function vehicle()
     {
@@ -93,7 +97,7 @@ class Auction extends Model
     public function canBid(): bool
     {
         // 1. Validar tiempo
-        $now = now();
+        $now = now()->timezone(self::TIMEZONE);
         $timeValid = $this->start_date <= $now && $this->end_date > $now;
         
         if (!$timeValid) {
@@ -161,41 +165,48 @@ class Auction extends Model
 
     public function getBidStatusAttribute(): string
     {
-        // Si la subasta ya terminó
-        if ($this->end_date < now()) {
-            // Verificar si hubo un ganador
-            $winningBid = $this->bids()->orderByDesc('amount')->first();
-            
-            if (!$winningBid) {
-                return 'Subasta Fallida';
-            }
-            
-            // Si el usuario actual es el ganador
-            if ($winningBid->reseller_id === auth()->id()) {
-                return 'Subasta Ganada';
-            }
-            
-            return 'Subasta Perdida';
-        }
+        $userBid = $this->getUserBid();
         
-        // Obtener la puja más alta del usuario actual
-        $userBid = $this->bids()
-            ->where('reseller_id', auth()->id())
-            ->orderByDesc('amount')
-            ->first();
-        
-        // Si el usuario no ha hecho ninguna puja
         if (!$userBid) {
             return 'Sin Oferta';
         }
+
+        // Si la subasta está adjudicada
+        if ($this->status_id === \App\Models\AuctionStatus::ADJUDICADA) {
+            $winningBid = $this->bids()->orderByDesc('amount')->first();
+            if ($winningBid && $winningBid->reseller_id === Auth::id()) {
+                return 'Subasta Adjudicada';
+            }
+            return 'Subasta Perdida';
+        }
+
+        // Si la subasta está fallida
+        if ($this->status_id === \App\Models\AuctionStatus::FALLIDA) {
+            return 'Subasta Fallida';
+        }
+
+        // Si la subasta está ganada
+        if ($this->status_id === \App\Models\AuctionStatus::GANADA) {
+            $winningBid = $this->bids()->orderByDesc('amount')->first();
+            if ($winningBid && $winningBid->reseller_id === Auth::id()) {
+                return 'Subasta Ganada';
+            }
+            return 'Subasta Perdida';
+        }
+
+        // Para subastas en proceso o sin oferta
+        $leadingBid = $this->getLeadingBid();
         
-        // Verificar si hay una puja más alta de otro usuario
-        $higherBid = $this->bids()
-            ->where('reseller_id', '!=', auth()->id())
-            ->where('amount', '>', $userBid->amount)
-            ->exists();
-        
-        return $higherBid ? 'Puja Superada' : 'Puja Líder';
+        // Si no hay puja líder (no debería ocurrir, pero por seguridad)
+        if (!$leadingBid) {
+            return 'Sin Oferta';
+        }
+
+        if ($userBid->id === $leadingBid->id) {
+            return 'Puja Líder';
+        }
+
+        return 'Puja Superada';
     }
 
     public function getBidStatusColorAttribute(): string
@@ -206,6 +217,7 @@ class Auction extends Model
             'Subasta Ganada' => 'success',
             'Subasta Perdida' => 'danger',
             'Subasta Fallida' => 'danger',
+            'Subasta Adjudicada' => 'success',
             'Sin Oferta' => 'gray',
             default => 'gray'
         };
@@ -222,10 +234,10 @@ class Auction extends Model
 
             // Asegurar que las fechas estén en zona horaria de Lima
             if ($auction->start_date) {
-                $auction->start_date = $auction->start_date->timezone('America/Lima');
+                $auction->start_date = $auction->start_date->timezone(self::TIMEZONE);
             }
             if ($auction->end_date) {
-                $auction->end_date = $auction->end_date->timezone('America/Lima');
+                $auction->end_date = $auction->end_date->timezone(self::TIMEZONE);
             }
         });
 
@@ -235,7 +247,7 @@ class Auction extends Model
                 'class' => get_class($auction),
                 'start_date' => $auction->start_date->format('Y-m-d H:i:s'),
                 'end_date' => $auction->end_date->format('Y-m-d H:i:s'),
-                'timezone' => $auction->start_date->timezone->getName()
+                'timezone' => self::TIMEZONE
             ]);
         });
     }
@@ -243,6 +255,17 @@ class Auction extends Model
     // Asegurar que las fechas se devuelvan en zona horaria de Lima
     protected function serializeDate(\DateTimeInterface $date)
     {
-        return $date->timezone('America/Lima');
+        return \Carbon\Carbon::parse($date)->setTimezone(self::TIMEZONE);
+    }
+
+    // Asegurar que las fechas se guarden en zona horaria de Lima
+    public function setStartDateAttribute($value)
+    {
+        $this->attributes['start_date'] = $value ? Carbon::parse($value)->timezone(self::TIMEZONE) : null;
+    }
+
+    public function setEndDateAttribute($value)
+    {
+        $this->attributes['end_date'] = $value ? Carbon::parse($value)->timezone(self::TIMEZONE) : null;
     }
 }

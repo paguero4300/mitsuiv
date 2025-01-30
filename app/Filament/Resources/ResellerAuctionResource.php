@@ -197,14 +197,14 @@ class ResellerAuctionResource extends Resource
 
                             Tables\Columns\TextColumn::make('base_price')
                                 ->label('Base')
-                                ->formatStateUsing(fn ($state): string => "Base: $ " . number_format($state ?? 0, 2))
+                                ->formatStateUsing(fn ($state): string => "Base: $ " . number_format($state ?? 0, 0, '.', ','))
                                 ->extraAttributes([
                                     'class' => 'text-success-600 font-bold',
                                 ]),
 
                             Tables\Columns\TextColumn::make('current_price')
                                 ->label('Actual')
-                                ->formatStateUsing(fn ($state): string => "Actual: $ " . number_format($state ?? 0, 2))
+                                ->formatStateUsing(fn ($state): string => "Actual: $ " . number_format($state ?? 0, 0, '.', ','))
                                 ->extraAttributes([
                                     'class' => 'text-primary-600 font-bold',
                                 ]),
@@ -278,7 +278,16 @@ class ResellerAuctionResource extends Resource
                                 ->label('Mi Puja')
                                 ->formatStateUsing(fn (string $state): string => "Mi Puja: {$state}")
                                 ->badge()
-                                ->color(fn (Auction $record) => $record->bid_status_color)
+                                ->color(fn ($record) => $record->bid_status_color)
+                                ->icon(fn ($record) => match($record->bid_status) {
+                                    'Puja Líder' => 'heroicon-o-trophy',
+                                    'Puja Superada' => 'heroicon-o-arrow-trending-down',
+                                    'Subasta Ganada' => 'heroicon-o-trophy',
+                                    'Subasta Adjudicada' => 'heroicon-o-trophy',
+                                    'Subasta Perdida' => 'heroicon-o-x-circle',
+                                    'Subasta Fallida' => 'heroicon-o-x-circle',
+                                    default => 'heroicon-o-minus-circle'
+                                })
                                 ->extraAttributes([
                                     'class' => 'text-sm',
                                 ]),
@@ -484,6 +493,7 @@ class ResellerAuctionResource extends Resource
                                     ->size('xl')
                                     ->weight('bold')
                                     ->color('gray')
+                                    ->formatStateUsing(fn ($state): string => '$ ' . number_format($state ?? 0, 0, '.', ','))
                                     ->icon('heroicon-o-banknotes'),
                                 \Filament\Infolists\Components\TextEntry::make('current_price')
                                     ->label('Precio Actual')
@@ -491,6 +501,7 @@ class ResellerAuctionResource extends Resource
                                     ->size('xl')
                                     ->weight('bold')
                                     ->color('success')
+                                    ->formatStateUsing(fn ($state): string => '$ ' . number_format($state ?? 0, 0, '.', ','))
                                     ->icon('heroicon-o-currency-dollar')
                                     ->extraAttributes(['wire:poll.5s' => '']),
                             ]),
@@ -519,6 +530,10 @@ class ResellerAuctionResource extends Resource
                                     ->icon(fn ($record) => match($record->bid_status) {
                                         'Puja Líder' => 'heroicon-o-trophy',
                                         'Puja Superada' => 'heroicon-o-arrow-trending-down',
+                                        'Subasta Ganada' => 'heroicon-o-trophy',
+                                        'Subasta Adjudicada' => 'heroicon-o-trophy',
+                                        'Subasta Perdida' => 'heroicon-o-x-circle',
+                                        'Subasta Fallida' => 'heroicon-o-x-circle',
                                         default => 'heroicon-o-minus-circle'
                                     })
                                     ->extraAttributes(['wire:poll.5s' => '']),
@@ -608,11 +623,10 @@ class ResellerAuctionResource extends Resource
                             ->schema([
                                 \Filament\Infolists\Components\TextEntry::make('vehicle.engine_cc')
                                     ->label('Cilindrada')
-                                    ->icon('heroicon-o-beaker')
+                                    ->icon('heroicon-o-wrench')
                                     ->formatStateUsing(fn($state) => number_format($state) . ' cc'),
                                 \Filament\Infolists\Components\TextEntry::make('vehicle.cylinders.value')
-                                    ->label('Cilindros')
-                                    ->icon('heroicon-o-variable'),
+                                    ->label('Cilindros'),
                                 \Filament\Infolists\Components\TextEntry::make('vehicle.fuelType.value')
                                     ->label('Combustible')
                                     ->icon('heroicon-o-fire'),
@@ -622,7 +636,7 @@ class ResellerAuctionResource extends Resource
                             ->schema([
                                 \Filament\Infolists\Components\TextEntry::make('vehicle.doors.value')
                                     ->label('Puertas')
-                                    ->icon('heroicon-o-swatch'),
+                                    ->icon('heroicon-o-square-2-stack'),
                                 \Filament\Infolists\Components\TextEntry::make('vehicle.color.value')
                                     ->label('Color')
                                     ->icon('heroicon-o-swatch'),
@@ -798,7 +812,12 @@ class ResellerAuctionResource extends Resource
 
     private static function createEquipmentGrid(array $items)
     {
-        return \Filament\Infolists\Components\Grid::make(4)
+        return \Filament\Infolists\Components\Grid::make([
+            'default' => 2,
+            'sm' => 2,
+            'md' => 4,
+            'lg' => 4,
+        ])
             ->schema(
                 collect($items)->map(
                     fn($label, $field) =>

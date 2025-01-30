@@ -38,14 +38,14 @@ class ViewResellerAuction extends ViewRecord
                             $currentPrice = $this->record->current_price ?? $this->record->base_price;
                             return $currentPrice + $this->record->getMinimumBidIncrement();
                         })
-                        ->prefix('USD')
+                        ->prefix('$')
                         ->hint(function () {
                             $currentPrice = $this->record->current_price ?? $this->record->base_price;
                             $increment = $this->record->getMinimumBidIncrement();
                             return sprintf(
-                                'Precio actual: USD %s (incremento mínimo: USD %s)',
-                                number_format($currentPrice, 2),
-                                number_format($increment, 2)
+                                'Precio actual: $ %s (incremento mínimo: $ %s)',
+                                number_format($currentPrice, 0, '.', ','),
+                                number_format($increment, 0, '.', ',')
                             );
                         }),
                 ])
