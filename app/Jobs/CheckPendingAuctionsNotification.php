@@ -27,9 +27,10 @@ class CheckPendingAuctionsNotification implements ShouldQueue
         Log::info('CheckPendingAuctionsNotification: Iniciando verificación de subastas pendientes');
 
         try {
-            $now = now()->timezone('America/Lima');
+            // Todas las fechas en UTC
+            $now = now()->timezone('UTC');
             
-            // Definir ventanas de tiempo
+            // Definir ventanas de tiempo (en UTC)
             $tenMinutesFromNow = $now->copy()->addMinutes(10);
             $elevenMinutesFromNow = $now->copy()->addMinutes(11);
             $twentyFourHoursFromNow = $now->copy()->addHours(24);
@@ -57,7 +58,10 @@ class CheckPendingAuctionsNotification implements ShouldQueue
             // Log del SQL exacto
             Log::info('SQL Query:', [
                 'query' => $query->toSql(),
-                'bindings' => $query->getBindings()
+                'bindings' => $query->getBindings(),
+                'now_utc' => $now->format('Y-m-d H:i:s'),
+                'window_start_utc' => $tenMinutesFromNow->format('Y-m-d H:i:s'),
+                'window_end_utc' => $elevenMinutesFromNow->format('Y-m-d H:i:s')
             ]);
 
             $pendingAuctions = $query->get();
