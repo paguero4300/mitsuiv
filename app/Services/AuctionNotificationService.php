@@ -131,26 +131,9 @@ class AuctionNotificationService
         }
         Log::info('✅ Notificación nueva_subasta está habilitada para revendedores');
 
-        // 3. Validar que la subasta haya comenzado
-        $start_date = \Carbon\Carbon::createFromFormat('d/m/Y H:i', $auctionData['fecha_inicio'])->tz('America/Lima');
-        $now = now()->tz('America/Lima');
-        $hasStarted = $start_date <= $now;
-        
-        Log::info('3. Validación de inicio de subasta:', [
-            'fecha_inicio' => $start_date->format('Y-m-d H:i:s'),
-            'ahora' => $now->format('Y-m-d H:i:s'),
-            'zona_horaria' => 'America/Lima',
-            'ha_comenzado' => $hasStarted ? 'SÍ' : 'NO'
-        ]);
-        if (!$hasStarted) {
-            Log::warning('❌ La subasta aún no ha comenzado - Notificación cancelada');
-            return;
-        }
-        Log::info('✅ La subasta ya ha comenzado');
-
-        // 4. Obtener usuarios revendedores
+        // 3. Obtener usuarios revendedores
         $revendedores = $this->getUsersByRole('revendedor');
-        Log::info('4. Búsqueda de revendedores:', [
+        Log::info('3. Búsqueda de revendedores:', [
             'total_encontrados' => $revendedores->count()
         ]);
 
