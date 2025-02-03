@@ -35,14 +35,15 @@ class CheckPendingAuctionsNotification implements ShouldQueue
             $twentyFourHoursFromNow = $now->copy()->addHours(24);
 
             $query = Auction::query()
-                // Subastas que no han pasado
-                ->where('start_date', '>', $now)
+                // Subastas que no han pasado (convertir de Lima a UTC)
+                ->whereRaw('CONVERT_TZ(start_date, "-05:00", "+00:00") > ?', [$now])
                 // Subastas dentro de las próximas 24 horas
-                ->where('start_date', '<=', $twentyFourHoursFromNow)
+                ->whereRaw('CONVERT_TZ(start_date, "-05:00", "+00:00") <= ?', [$twentyFourHoursFromNow])
                 // Subastas en la ventana de notificación (10-11 minutos) o menos de 10 minutos
                 ->where(function ($query) use ($now, $tenMinutesFromNow, $elevenMinutesFromNow) {
-                    $query->whereBetween('start_date', [$tenMinutesFromNow, $elevenMinutesFromNow])
-                          ->orWhere('start_date', '<=', $tenMinutesFromNow);
+                    $query->whereRaw('CONVERT_TZ(start_date, "-05:00", "+00:00") BETWEEN ? AND ?', 
+                        [$tenMinutesFromNow, $elevenMinutesFromNow])
+                        ->orWhereRaw('CONVERT_TZ(start_date, "-05:00", "+00:00") <= ?', [$tenMinutesFromNow]);
                 })
                 // Evitar duplicados
                 ->whereNotExists(function ($query) {
@@ -53,15 +54,11 @@ class CheckPendingAuctionsNotification implements ShouldQueue
                         ->where('channel_type', 'whatsapp');
                 });
 
-            // Log detallado solo para desarrollo
-            // Log::info('CheckPendingAuctionsNotification: Consulta SQL a ejecutar', [
-            //     'consulta_sql' => $query->toSql(),
-            //     'parametros' => $query->getBindings(),
-            //     'fecha_actual' => $now->format('Y-m-d H:i:s'),
-            //     'ventana_10min' => $tenMinutesFromNow->format('Y-m-d H:i:s'),
-            //     'ventana_11min' => $elevenMinutesFromNow->format('Y-m-d H:i:s'),
-            //     'limite_24h' => $twentyFourHoursFromNow->format('Y-m-d H:i:s')
-            // ]);
+            // Log del SQL exacto
+            Log::info('SQL Query:', [
+                'query' => $query->toSql(),
+                'bindings' => $query->getBindings()
+            ]);
 
             $pendingAuctions = $query->get();
 
