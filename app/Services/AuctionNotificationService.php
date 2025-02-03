@@ -131,7 +131,7 @@ class AuctionNotificationService
         }
         Log::info('✅ Notificación nueva_subasta está habilitada para revendedores');
 
-        // 3. Validar que la subasta haya empezado
+        // 3. Validar que la subasta haya comenzado
         $start_date = \Carbon\Carbon::createFromFormat('d/m/Y H:i', $auctionData['fecha_inicio'])->tz('America/Lima');
         $now = now()->tz('America/Lima');
         $hasStarted = $start_date <= $now;
@@ -151,14 +151,9 @@ class AuctionNotificationService
         // 4. Obtener usuarios revendedores
         $revendedores = $this->getUsersByRole('revendedor');
         Log::info('4. Búsqueda de revendedores:', [
-            'total_encontrados' => $revendedores->count(),
-            'lista_revendedores' => $revendedores->map(fn($r) => [
-                'id' => $r->id,
-                'nombre' => $r->name,
-                'email' => $r->email,
-                'telefono' => data_get($r->custom_fields, 'phone') ?? 'NO CONFIGURADO'
-            ])->toArray()
+            'total_encontrados' => $revendedores->count()
         ]);
+
         if ($revendedores->isEmpty()) {
             Log::warning('❌ No se encontraron revendedores con WhatsApp configurado - Notificación cancelada');
             return;
@@ -167,22 +162,39 @@ class AuctionNotificationService
 
         $notificacionesEnviadas = 0;
         $notificacionesFallidas = 0;
+        $numerosNotificados = [];
 
         foreach ($revendedores as $revendedor) {
             Log::info('=== Procesando revendedor ===', [
                 'id' => $revendedor->id,
                 'nombre' => $revendedor->name,
-                'email' => $revendedor->email,
-                'roles' => $revendedor->roles->pluck('name')->toArray()
+                'email' => $revendedor->email
             ]);
+
+            $phone = data_get($revendedor->custom_fields, 'phone');
+            
+            // Formatear el número correctamente
+            $phone = $phone ? preg_replace('/[^0-9]/', '', $phone) : null;
+
+            if (!$phone) {
+                Log::info('⏩ Revendedor sin teléfono configurado - Saltando', [
+                    'id' => $revendedor->id,
+                    'nombre' => $revendedor->name
+                ]);
+                continue;
+            }
+
+            // Validar si el número ya fue notificado
+            if (in_array($phone, $numerosNotificados)) {
+                Log::info('⏩ Número ya notificado anteriormente - Saltando', [
+                    'telefono' => $phone,
+                    'nombre' => $revendedor->name
+                ]);
+                continue;
+            }
 
             // 5. Validar que no se haya enviado la notificación previamente
             $notificationSent = $this->isNotificationSent('nueva_subasta', 'whatsapp', $revendedor->id, $auctionData['id']);
-            Log::info('5. Validación de notificación previa:', [
-                'ya_enviada' => $notificationSent ? 'SÍ' : 'NO',
-                'user_id' => $revendedor->id,
-                'nombre' => $revendedor->name
-            ]);
             if ($notificationSent) {
                 Log::info('⏩ Notificación ya enviada al revendedor - Saltando', [
                     'nombre' => $revendedor->name,
@@ -191,77 +203,77 @@ class AuctionNotificationService
                 continue;
             }
 
-            $phone = data_get($revendedor->custom_fields, 'phone');
-            Log::info('6. Validación de teléfono:', [
-                'tiene_telefono' => $phone ? 'SÍ' : 'NO',
-                'telefono' => $phone ?? 'NO CONFIGURADO',
-                'nombre' => $revendedor->name
-            ]);
-            if (!$phone) {
-                Log::warning('⚠️ Revendedor sin número de teléfono configurado - Saltando', [
-                    'nombre' => $revendedor->name,
-                    'email' => $revendedor->email
-                ]);
-                $notificacionesFallidas++;
-                continue;
-            }
-
-            $message = sprintf(
-                "🔔 ¡Nueva Subasta Disponible!\n\n" .
-                "📋 Detalles del Vehículo:\n" .
-                "🚗 %s\n\n" .
-                "⏰ Cronograma:\n" .
-                "▪️ Inicio: %s\n" .
-                "▪️ Fin: %s\n\n" .
-                "💡 ¡No pierdas esta oportunidad! Ingresa ahora para hacer tu oferta.",
-                $auctionData['vehiculo'],
-                $auctionData['fecha_inicio'],
-                $auctionData['fecha_fin']
-            );
-
             try {
-                Log::info('7. Intentando enviar mensaje:', [
-                    'destinatario' => [
-                        'id' => $revendedor->id,
-                        'nombre' => $revendedor->name,
-                        'email' => $revendedor->email,
-                        'telefono' => $phone
-                    ],
-                    'message' => $message
+                // Preparar template en formato Meta WhatsApp API
+                $templateData = [
+                    'messaging_product' => 'whatsapp',
+                    'to' => $phone,
+                    'type' => 'template',
+                    'template' => [
+                        'name' => 'new_auction',
+                        'language' => [
+                            'code' => 'es_PE'
+                        ],
+                        'components' => [
+                            [
+                                'type' => 'body',
+                                'parameters' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => $auctionData['vehiculo']
+                                    ],
+                                    [
+                                        'type' => 'text',
+                                        'text' => $auctionData['fecha_inicio']
+                                    ],
+                                    [
+                                        'type' => 'text',
+                                        'text' => $auctionData['fecha_fin']
+                                    ]
+                                ]
+                            ]
+                        ]
+                    ]
+                ];
+
+                Log::info('Enviando notificación WhatsApp', [
+                    'destinatario' => $phone,
+                    'template_data' => $templateData
                 ]);
 
-                $this->metaWaService->sendMessage($phone, $message);
-                
-                // Registrar la notificación enviada
-                $this->logNotification(
-                    'nueva_subasta',
-                    'whatsapp',
-                    $revendedor->id,
-                    $auctionData['id'],
-                    $auctionData
-                );
+                $response = $this->metaWaService->sendTemplateMessage($phone, $templateData);
 
+                // Registrar la notificación como enviada
+                $this->logNotification('nueva_subasta', 'whatsapp', $revendedor->id, $auctionData['id'], [
+                    'template' => 'new_auction',
+                    'phone' => $phone,
+                    'message_id' => $response['messages'][0]['id'] ?? null
+                ]);
+
+                // Agregar el número a la lista de notificados
+                $numerosNotificados[] = $phone;
                 $notificacionesEnviadas++;
+
                 Log::info('✅ Notificación enviada exitosamente', [
                     'destinatario' => [
                         'id' => $revendedor->id,
                         'nombre' => $revendedor->name,
-                        'email' => $revendedor->email,
                         'telefono' => $phone
                     ],
-                    'auction_id' => $auctionData['id']
+                    'auction_id' => $auctionData['id'],
+                    'message_id' => $response['messages'][0]['id'] ?? 'N/A'
                 ]);
+
             } catch (\Exception $e) {
                 $notificacionesFallidas++;
-                Log::error('❌ Error enviando notificación', [
+                Log::error('Error enviando notificación WhatsApp', [
+                    'error' => $e->getMessage(),
                     'destinatario' => [
                         'id' => $revendedor->id,
                         'nombre' => $revendedor->name,
-                        'email' => $revendedor->email,
                         'telefono' => $phone
                     ],
-                    'error' => $e->getMessage(),
-                    'trace' => $e->getTraceAsString()
+                    'auction_id' => $auctionData['id']
                 ]);
             }
         }

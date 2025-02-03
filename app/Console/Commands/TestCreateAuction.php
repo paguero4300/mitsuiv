@@ -142,25 +142,7 @@ class TestCreateAuction extends Command
 
             $this->info('Subasta creada con ID: ' . $auction->id);
             
-            // La notificación será enviada automáticamente por el AuctionObserver
-            // No es necesario enviarla manualmente aquí para evitar duplicados
-            /*
-            try {
-                $auctionData = [
-                    'id' => $auction->id,
-                    'vehiculo' => $vehicle->plate,
-                    'fecha_inicio' => $auction->start_date->format('d/m/Y H:i'),
-                    'fecha_fin' => $auction->end_date->format('d/m/Y H:i'),
-                ];
-
-                $notificationService = app(\App\Services\AuctionNotificationService::class);
-                $notificationService->sendNewAuctionNotification($auctionData);
-                
-                $this->info('Notificación enviada directamente.');
-            } catch (\Exception $e) {
-                $this->error('Error enviando notificación: ' . $e->getMessage());
-            }
-            */
+         
             
             $this->table(
                 ['Campo', 'Valor'],
@@ -176,7 +158,7 @@ class TestCreateAuction extends Command
                 ]
             );
 
-            // Mostrar destinatarios de la notificación
+           
             $revendedores = \App\Models\User::role('revendedor')->get();
             if ($revendedores->isNotEmpty()) {
                 $this->info("\nDestinatarios de la notificación:");

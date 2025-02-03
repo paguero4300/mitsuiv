@@ -16,50 +16,49 @@ class MetaWaService
     {
         $this->token = config('services.meta_wa.token');
         $this->phoneNumberId = config('services.meta_wa.phone_number_id');
-        $this->apiVersion = config('services.meta_wa.api_version');
+        $this->apiVersion = config('services.meta_wa.api_version', 'v19.0');
         $this->baseUrl = "https://graph.facebook.com/{$this->apiVersion}/{$this->phoneNumberId}";
     }
 
-    public function sendMessage(string $recipient, string $message)
+    public function sendTemplateMessage(string $recipient, array $templateData)
     {
         try {
-            $data = [
-                'messaging_product' => 'whatsapp',
-                'recipient_type' => 'individual',
+            Log::info('Intentando enviar plantilla WhatsApp', [
                 'to' => $recipient,
-                'type' => 'text',
-                'text' => [
-                    'preview_url' => false,
-                    'body' => $message
-                ]
-            ];
-
-            Log::info('Intentando enviar mensaje de WhatsApp', [
-                'to' => $recipient,
-                'message' => $message
+                'template_name' => $templateData['template']['name'],
+                'data' => $templateData
             ]);
 
             $response = Http::withToken($this->token)
-                ->post("{$this->baseUrl}/messages", $data);
+                ->withHeaders([
+                    'Content-Type' => 'application/json',
+                    'Accept' => 'application/json'
+                ])
+                ->post("{$this->baseUrl}/messages", $templateData);
 
             if (!$response->successful()) {
-                throw new \Exception("Error HTTP: {$response->status()} - {$response->body()}");
+                $error = $response->json();
+                Log::error('Error en respuesta de WhatsApp', [
+                    'status' => $response->status(),
+                    'error' => $error,
+                    'data' => $templateData
+                ]);
+                throw new \Exception("Error en la API: " . ($error['error']['message'] ?? 'Error desconocido'));
             }
 
-            $decoded = $response->json();
-
-            Log::info('Respuesta de WhatsApp recibida', [
-                'response' => $decoded
+            $result = $response->json();
+            Log::info('Respuesta exitosa de WhatsApp', [
+                'response' => $result
             ]);
 
-            return $decoded;
+            return $result;
 
         } catch (\Exception $e) {
-            Log::error('Error enviando mensaje de WhatsApp', [
+            Log::error('Error enviando plantilla WhatsApp', [
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
+                'data' => $templateData
             ]);
-
             throw $e;
         }
     }
