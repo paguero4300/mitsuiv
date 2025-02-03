@@ -7,10 +7,10 @@ use Illuminate\Support\Facades\Schedule;
 
 
 Schedule::command('auctions:update-statuses')
-    ->everyFiveMinutes()
+    ->everyMinute()
     ->withoutOverlapping()
     ->runInBackground();
 
 Schedule::command('auctions:check-pending')
-    ->everyFiveMinutes()
+    ->everyMinute()
     ->withoutOverlapping();
