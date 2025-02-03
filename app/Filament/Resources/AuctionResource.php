@@ -59,7 +59,7 @@ class AuctionResource extends Resource
     protected static ?string $pluralModelLabel = 'Subastas';
     protected static ?string $modelLabel = 'Subasta';
     protected static ?string $recordTitleAttribute = 'Subasta';
-    protected static ?string $navigationGroup = 'Subastas y Vehículos';
+    protected static ?string $navigationGroup = 'Subastas';
     protected static ?string $slug = 'admin-auctions';
 
 
@@ -690,14 +690,14 @@ class AuctionResource extends Resource
 
                             Tables\Columns\TextColumn::make('base_price')
                                 ->label('Base')
-                                ->formatStateUsing(fn ($state): string => "Base: $ " . number_format($state ?? 0, 0, '.', ','))
+                                ->formatStateUsing(fn ($state): string => "Base: $ " . number_format((int)($state ?? 0), 0, '', ','))
                                 ->extraAttributes([
                                     'class' => 'text-success-600 font-bold',
                                 ]),
 
                             Tables\Columns\TextColumn::make('current_price')
                                 ->label('Actual')
-                                ->formatStateUsing(fn ($state): string => "Actual: $ " . number_format($state ?? 0, 0, '.', ','))
+                                ->formatStateUsing(fn ($state): string => "Actual: $ " . number_format((int)($state ?? 0), 0, '', ','))
                                 ->extraAttributes([
                                     'class' => 'text-primary-600 font-bold',
                                 ]),

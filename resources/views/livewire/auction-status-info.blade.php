@@ -29,14 +29,14 @@
             <div class="p-4 transition-shadow bg-white shadow-sm rounded-xl hover:shadow-md">
                 <span class="block mb-2 text-sm font-medium text-gray-600">Precio Base</span>
                 <x-filament::badge size="lg" color="info">
-                    US$ {{ number_format($basePrice, 2) }}
+                    US$ {{ number_format($basePrice, 0, '', ',') }}
                 </x-filament::badge>
             </div>
 
             <div class="p-4 transition-shadow bg-white shadow-sm rounded-xl hover:shadow-md">
                 <span class="block mb-2 text-sm font-medium text-gray-600">Precio Actual</span>
                 <x-filament::badge size="lg" color="success">
-                    US$ {{ number_format($currentPrice, 2) }}
+                    US$ {{ number_format($currentPrice, 0, '', ',') }}
                 </x-filament::badge>
             </div>
         </div>
@@ -106,7 +106,7 @@
                     <div class="grid grid-cols-2 gap-4">
                         <div class="p-4 rounded-lg bg-gray-50">
                             <p class="text-sm font-medium text-gray-500">Monto Ganador</p>
-                            <p class="text-lg font-bold text-success-600">US$ {{ number_format($winningBid->amount, 2) }}</p>
+                            <p class="text-lg font-bold text-success-600">US$ {{ number_format($winningBid->amount, 0, '', ',') }}</p>
                         </div>
                         <div class="p-4 rounded-lg bg-gray-50">
                             <p class="text-sm font-medium text-gray-500">Fecha de Adjudicación</p>
@@ -190,7 +190,7 @@
                     </div>
                     <div class="mt-2 sm:mt-0">
                         <x-filament::badge size="lg" color="success">
-                            US$ {{ number_format($bid->amount, 2) }}
+                            US$ {{ number_format($bid->amount, 0, '', ',') }}
                         </x-filament::badge>
                     </div>
                 </div>

@@ -33,23 +33,34 @@ class ViewResellerAuction extends ViewRecord
                     Forms\Components\TextInput::make('amount')
                         ->label('Monto a Pujar')
                         ->required()
-                        ->numeric()
-                        ->minValue(function () {
-                            $currentPrice = $this->record->current_price ?? $this->record->base_price;
-                            return $currentPrice + $this->record->getMinimumBidIncrement();
-                        })
                         ->prefix('$')
+                        ->extraAttributes([
+                            'type' => 'text',
+                            'inputmode' => 'numeric',
+                            'style' => 'text-align: right; font-weight: bold; font-size: 1.25rem;',
+                            'placeholder' => '0',
+                            'oninput' => '
+                                let value = event.target.value.replace(/\D/g, "");
+                                if (value) {
+                                    value = parseInt(value, 10);
+                                    value = value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+                                }
+                                event.target.value = value;
+                            '
+                        ])
+                        ->dehydrateStateUsing(fn ($state) => (int)str_replace(',', '', $state))
                         ->hint(function () {
                             $currentPrice = $this->record->current_price ?? $this->record->base_price;
                             $increment = $this->record->getMinimumBidIncrement();
                             return sprintf(
                                 'Precio actual: $ %s (incremento mínimo: $ %s)',
-                                number_format($currentPrice, 0, '.', ','),
-                                number_format($increment, 0, '.', ',')
+                                number_format($currentPrice, 0, '', ','),
+                                number_format($increment, 0, '', ',')
                             );
                         }),
                 ])
-                ->modalWidth('md')
+                ->modalWidth('xs')
+                ->modalAlignment('center')
                 ->beforeFormFilled(function () {
                     // Ocultar la galería cuando se abre el modal
                     $this->dispatch('hide-gallery');

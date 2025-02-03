@@ -26,11 +26,11 @@ use Illuminate\Support\Facades\Blade;
 class VehicleResource extends Resource
 {
     protected static ?string $model = Vehicle::class;
-    protected static ?string $navigationIcon = 'heroicon-o-cube';
+    protected static ?string $navigationIcon = 'heroicon-o-truck';
     protected static ?int $navigationSort = 2;
     protected static ?string $label = 'Vehículo';
     protected static ?string $pluralLabel = 'Vehículos';
-    protected static ?string $navigationGroup = 'Subastas y Vehículos';
+    protected static ?string $navigationGroup = 'Catálogos';
 
     public static function getNavigationBadge(): ?string
     {
@@ -418,7 +418,13 @@ class VehicleResource extends Resource
                             ->placeholder('Ingrese cantidad')
                             ->prefixIcon('heroicon-o-shield-check'),
 
-                        Forms\Components\Grid::make(3)
+                        Forms\Components\Grid::make([
+                            'default' => 2,
+                            'sm' => 2,
+                            'md' => 3,
+                            'lg' => 3,
+                            'xl' => 3,
+                        ])
                             ->schema([
                                 Forms\Components\Toggle::make('air_conditioning')
                                     ->label('Aire Acondicionado')

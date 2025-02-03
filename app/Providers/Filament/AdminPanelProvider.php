@@ -75,6 +75,7 @@ class AdminPanelProvider extends PanelProvider
                     ->setNavigationGroup('Gestion')
                     ->shouldShowDeleteAccountForm(false)
                     ->shouldShowEditProfileForm(false)
+                    ->shouldShowEditPasswordForm(false)
                     ->setIcon('heroicon-o-user'),
                 SimpleLightBoxPlugin::make(),
                 FilamentApexChartsPlugin::make(),

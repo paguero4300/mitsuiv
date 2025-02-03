@@ -13,7 +13,7 @@ use Filament\Tables\Table;
 class AuctionStatusResource extends Resource
 {
     protected static ?string $model = AuctionStatus::class;
-    protected static ?string $navigationIcon = 'heroicon-o-signal';
+    protected static ?string $navigationIcon = 'heroicon-o-check-circle';
     protected static ?string $navigationLabel = 'Estados';
     protected static ?string $pluralLabel = 'Estados de Subasta';
     protected static ?string $modelLabel = 'Estado de Subasta';
