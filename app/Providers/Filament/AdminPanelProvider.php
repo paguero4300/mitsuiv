@@ -35,6 +35,7 @@ use App\Filament\Widgets\TotalSalesOverview;
 use App\Filament\Widgets\AverageSalesOverview;
 use App\Filament\Widgets\AuctionsStatsOverview;
 use App\Filament\Widgets\AuctionsPerformanceChart;
+use App\Filament\Widgets\AveragePerformanceChart;
 use App\Filament\Widgets\SalesPerformanceChart;
 
 class AdminPanelProvider extends PanelProvider
@@ -63,7 +64,8 @@ class AdminPanelProvider extends PanelProvider
                 Widgets\AccountWidget::class,
                 AuctionsStatsOverview::class,
                 AuctionsPerformanceChart::class,
-                SalesPerformanceChart::class
+                SalesPerformanceChart::class,
+                AveragePerformanceChart::class
                 ])
             ->plugins([
                 \BezhanSalleh\FilamentShield\FilamentShieldPlugin::make(),

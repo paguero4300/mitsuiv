@@ -61,9 +61,9 @@ class AuctionResource extends Resource
     protected static ?string $recordTitleAttribute = 'Subasta';
     protected static ?string $navigationGroup = 'Subastas';
     protected static ?string $slug = 'admin-auctions';
-
-
     
+
+
 
     public static function form(Form $form): Form
     {
@@ -257,7 +257,7 @@ class AuctionResource extends Resource
                         ->columnSpanFull(),
                 ]),
 
-            // Galería del Vehículo
+           
             \Filament\Infolists\Components\Section::make('Galería del Vehículo')
                 ->description('Imágenes del vehículo seleccionado')
                 ->icon('heroicon-o-camera')

@@ -5,6 +5,8 @@ namespace App\Filament\Widgets;
 use Leandrocfe\FilamentApexCharts\Widgets\ApexChartWidget;
 use Illuminate\Support\Facades\DB;
 use BezhanSalleh\FilamentShield\Traits\HasWidgetShield;
+use Filament\Forms\Components\Select;
+use Filament\Support\Enums\MaxWidth;
 
 class AuctionsPerformanceChart extends ApexChartWidget
 {
@@ -23,6 +25,35 @@ class AuctionsPerformanceChart extends ApexChartWidget
      */
     protected static ?string $heading = 'Performance de Subastas';
 
+    protected static ?int $sort = 1;
+
+    // Definir el ancho del formulario de filtro
+    protected static MaxWidth|string $filterFormWidth = MaxWidth::Medium;
+
+    protected string|array|int $columnSpan = 4;
+
+    protected function getFormSchema(): array
+    {
+        // Obtenemos los años disponibles
+        $years = DB::table('auctions')
+            ->selectRaw('YEAR(start_date) as year')
+            ->distinct()
+            ->orderBy('year', 'desc')
+            ->pluck('year')
+            ->toArray();
+
+        return [
+            Select::make('year')
+                ->label('Año')
+                ->options(array_combine($years, $years))
+                ->default(date('Y'))
+                ->live()
+                ->afterStateUpdated(function () {
+                    $this->updateChartOptions();
+                }),
+        ];
+    }
+
     /**
      * Chart options (series, labels, types, size, animations...)
      * https://apexcharts.com/docs/options
@@ -31,6 +62,8 @@ class AuctionsPerformanceChart extends ApexChartWidget
      */
     protected function getOptions(): array
     {
+        $selectedYear = $this->filterFormData['year'] ?? date('Y');
+
         // Obtener datos de subastas agrupados por mes
         $monthlyData = DB::table('auctions')
             ->selectRaw('
@@ -38,6 +71,7 @@ class AuctionsPerformanceChart extends ApexChartWidget
                 COUNT(id) as total_subastas,
                 SUM(CASE WHEN status_id = (SELECT id FROM auction_statuses WHERE slug = "adjudicada") THEN 1 ELSE 0 END) as adjudicadas
             ')
+            ->whereYear('start_date', $selectedYear)
             ->groupBy('month')
             ->orderBy('month')
             ->get();
