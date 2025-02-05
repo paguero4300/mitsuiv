@@ -37,6 +37,7 @@ use App\Filament\Widgets\AuctionsStatsOverview;
 use App\Filament\Widgets\AuctionsPerformanceChart;
 use App\Filament\Widgets\AveragePerformanceChart;
 use App\Filament\Widgets\SalesPerformanceChart;
+use App\Filament\Widgets\UnifiedKpiWidget;
 
 class AdminPanelProvider extends PanelProvider
 {
@@ -60,12 +61,12 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->widgets([
                 
-
                 Widgets\AccountWidget::class,
                 AuctionsStatsOverview::class,
                 AuctionsPerformanceChart::class,
                 SalesPerformanceChart::class,
-                AveragePerformanceChart::class
+                AveragePerformanceChart::class,
+                UnifiedKpiWidget::class,
                 ])
             ->plugins([
                 \BezhanSalleh\FilamentShield\FilamentShieldPlugin::make(),
