@@ -190,13 +190,35 @@ class UserResource extends Resource
                     ->toggleable()
             ])
             ->filters([
-                Tables\Filters\Filter::make('verified')
-                    ->label(trans('filament-users::user.resource.verified'))
-                    ->query(fn(Builder $query): Builder => $query->whereNotNull('email_verified_at')),
-                Tables\Filters\Filter::make('unverified')
-                    ->label(trans('filament-users::user.resource.unverified'))
-                    ->query(fn(Builder $query): Builder => $query->whereNull('email_verified_at')),
-            ])
+                Tables\Filters\SelectFilter::make('role')
+                    ->label('Perfil')
+                    ->options([
+                        'tasador' => 'Tasador',
+                        'revendedor' => 'Revendedor',
+                        'administrador' => 'Administrador',
+                        'admin de visualizacion' => 'Admin de visualizacion'
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        if (empty($data['values'] ?? [])) {
+                            return $query;
+                        }
+
+                        return $query->whereHas('roles', function ($query) use ($data) {
+                            $query->whereIn('name', $data['values']);
+                        });
+                    })
+                    ->multiple()
+                    ->searchable()
+                    ->preload(),
+            ], layout: \Filament\Tables\Enums\FiltersLayout::Modal)
+            ->filtersTriggerAction(
+                fn ($action) => $action
+                    ->button()
+                    ->label('Filtros')
+                    ->icon('heroicon-m-funnel')
+                    ->color('gray')
+                    ->size('sm')
+            )
             ->actions([
                 Tables\Actions\ActionGroup::make([
                     Tables\Actions\ViewAction::make()

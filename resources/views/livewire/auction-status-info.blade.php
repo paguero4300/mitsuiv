@@ -89,7 +89,7 @@
                         <x-heroicon-o-trophy class="w-8 h-8 text-success-500" />
                     </div>
                 </div>
-                
+
                 <div class="space-y-4">
                     <div class="p-4 bg-white border border-gray-200 rounded-lg">
                         <div class="flex items-center gap-4">
@@ -99,6 +99,12 @@
                             <div>
                                 <h3 class="text-lg font-semibold text-gray-900">{{ $winningBid->reseller->name }}</h3>
                                 <p class="text-sm text-gray-500">{{ $winningBid->reseller->email }}</p>
+                                <p class="text-sm text-gray-500">
+                                    <span class="inline-flex items-center gap-1">
+                                        <x-heroicon-o-phone class="w-4 h-4" />
+                                        {{ $winningBid->reseller->custom_fields['phone'] ?? 'No registrado' }}
+                                    </span>
+                                </p>
                             </div>
                         </div>
                     </div>
@@ -127,7 +133,7 @@
                                     placeholder="Ingrese notas o comentarios sobre la adjudicación (opcional)"
                                 ></textarea>
                             </div>
-                            
+
                             <div class="flex justify-end gap-3">
                                 <x-filament::button
                                     wire:click="rejectAdjudication"
@@ -183,8 +189,15 @@
                                 <x-heroicon-o-user class="w-7 h-7 text-primary-500" />
                             </div>
                         </div>
-                        <div class="text-center sm:text-left">
+                        <div class="text-left">
                             <p class="text-base font-medium text-gray-900">{{ $bid->reseller->name }}</p>
+                            <p class="text-sm text-gray-500">{{ $bid->reseller->email }}</p>
+                            <p class="text-sm text-gray-500">
+                                <span class="inline-flex items-center gap-1">
+                                    <x-heroicon-o-phone class="w-4 h-4" />
+                                    {{ $bid->reseller->custom_fields['phone'] ?? 'No registrado' }}
+                                </span>
+                            </p>
                             <p class="text-sm text-gray-500">{{ $bid->created_at->format('d/m/Y H:i:s') }}</p>
                         </div>
                     </div>

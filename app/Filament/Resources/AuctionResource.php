@@ -61,7 +61,7 @@ class AuctionResource extends Resource
     protected static ?string $recordTitleAttribute = 'Subasta';
     protected static ?string $navigationGroup = 'Subastas';
     protected static ?string $slug = 'admin-auctions';
-    
+
 
 
 
@@ -89,7 +89,58 @@ class AuctionResource extends Resource
                             ->searchable()
                             ->preload()
                             ->helperText('Seleccione el vehículo que desea subastar')
+                            ->live()
+                            ->afterStateUpdated(function ($state, Forms\Set $set) {
+                                if (!$state) return;
+
+                                $existingAuction = \App\Models\AdminAuction::query()
+                                    ->where('vehicle_id', $state)
+                                    ->latest()
+                                    ->first();
+
+                                if ($existingAuction) {
+                                    $vehicle = \App\Models\Vehicle::find($state);
+                                    $isActive = $existingAuction->end_date > now();
+
+                                    $status = match(true) {
+                                        $isActive => 'está actualmente en subasta',
+                                        !$isActive => 'ha sido subastado previamente',
+                                        default => 'tiene un registro de subasta'
+                                    };
+
+                                    $url = AuctionResource::getUrl('index', [
+                                        'tableFilters' => [
+                                            'price_range' => [
+                                                'plate' => $vehicle->plate
+                                            ]
+                                        ]
+                                    ]);
+
+                                    $set('Alerta', "⚠️ Este vehículo {$status}");
+                                    $set('AlertaUrl', $url);
+                                } else {
+                                    $set('Alerta', null);
+                                    $set('AlertaUrl', null);
+                                }
+                            })
                             ->columnSpanFull(),
+
+                        Forms\Components\Placeholder::make('Alerta')
+                            ->content(function ($state, Forms\Get $get) {
+                                if (!$state) return null;
+
+                                return view('filament.components.alert-with-link', [
+                                    'message' => $state,
+                                    'url' => $get('AlertaUrl')
+                                ]);
+                            })
+                            ->visible(fn ($state) => filled($state))
+                            ->extraAttributes([
+                                'class' => 'text-warning-600 font-medium',
+                            ])
+                            ->columnSpanFull(),
+
+                        Forms\Components\Hidden::make('AlertaUrl'),
 
                         Forms\Components\Grid::make(2)
                             ->schema([
@@ -115,10 +166,10 @@ class AuctionResource extends Resource
                                                 function () {
                                                     return function (string $attribute, $value, $fail) {
                                                         if (empty($value)) return;
-                                                        
+
                                                         $startDate = Carbon::parse($value)->timezone('America/Lima');
                                                         $now = now()->timezone('America/Lima');
-                                                        
+
                                                         if ($startDate->timestamp < ($now->timestamp - 30)) {
                                                             $fail("La fecha y hora de inicio no puede ser anterior a la hora actual ({$now->format('d/m/Y H:i')})");
                                                         }
@@ -144,7 +195,7 @@ class AuctionResource extends Resource
                                                     return function (string $attribute, $value, Closure $fail) use ($get) {
                                                         $startDate = Carbon::parse($get('start_date'))->timezone('America/Lima');
                                                         $endDate = Carbon::parse($value)->timezone('America/Lima');
-                                                        
+
                                                         if ($endDate->format('Y-m-d') === $startDate->format('Y-m-d')) {
                                                             if ($endDate->format('H:i') <= $startDate->format('H:i')) {
                                                                 $fail("La hora de fin debe ser mayor a la hora de inicio ({$startDate->format('H:i')})");
@@ -235,7 +286,7 @@ class AuctionResource extends Resource
                             ->default(fn() => \App\Models\AuctionStatus::where('slug', 'sin-oferta')->first()?->id ?? 2),
 
                         Forms\Components\Hidden::make('duration_hours')
-                            ->default(fn (Forms\Get $get): int => 
+                            ->default(fn (Forms\Get $get): int =>
                                 Carbon::parse($get('end_date'))->diffInHours(Carbon::parse($get('start_date')))
                             ),
                     ])
@@ -257,7 +308,7 @@ class AuctionResource extends Resource
                         ->columnSpanFull(),
                 ]),
 
-           
+
             \Filament\Infolists\Components\Section::make('Galería del Vehículo')
                 ->description('Imágenes del vehículo seleccionado')
                 ->icon('heroicon-o-camera')
@@ -618,25 +669,25 @@ class AuctionResource extends Resource
                             ->formatStateUsing(function (Auction $record): string {
                                 $start = Carbon::parse($record->start_date)->timezone('America/Lima');
                                 $now = now()->timezone('America/Lima');
-                                
+
                                 $dateStr = $start->format('d/m/Y');
-                                
+
                                 if ($start->gt($now)) {
                                     $interval = $now->diff($start);
                                     $totalHours = ($interval->days * 24) + $interval->h;
                                     return "{$dateStr} ({$totalHours}h {$interval->i}m {$interval->s}s)";
                                 }
-                                
+
                                 return $dateStr;
                             })
                             ->badge()
                             ->color(function (Auction $record) {
                                 $start = Carbon::parse($record->start_date)->timezone('America/Lima');
                                 $now = now()->timezone('America/Lima');
-                                
+
                                 if ($start->gt($now)) {
                                     $hoursRemaining = $now->diffInHours($start, false);
-                                    
+
                                     if ($hoursRemaining <= 1) {
                                         return 'danger';
                                     } elseif ($hoursRemaining <= 6) {
@@ -647,7 +698,7 @@ class AuctionResource extends Resource
                                         return 'success';
                                     }
                                 }
-                                
+
                                 return null;
                             })
                             ->extraAttributes([
@@ -728,9 +779,9 @@ class AuctionResource extends Resource
                                     if ($startDate->gt($now) || $endDate->isPast()) {
                                         return null;
                                     }
-                                    
+
                                     $hoursRemaining = $now->diffInHours($endDate, false);
-                                    
+
                                     if ($hoursRemaining <= 1) {
                                         return 'danger';
                                     } elseif ($hoursRemaining <= 6) {
@@ -851,7 +902,7 @@ class AuctionResource extends Resource
                     ->falseLabel('Finalizadas')
                     ->native(false),
 
-                Filter::make('vehicle_details')
+                    Filter::make('vehicle_details')
                     ->form([
                         Grid::make(2)
                             ->schema([
@@ -909,8 +960,8 @@ class AuctionResource extends Resource
                     })
                     ->indicateUsing(function (array $data): array {
                         $indicators = [];
-                        if ($brandName = \App\Models\CatalogValue::find($data['brand_id'] ?? null)?->value) {
-                            $indicators[] = Indicator::make("Marca: {$brandName}");
+                        if ($data['brand_id'] ?? null) {
+                            $indicators[] = Indicator::make("Marca: {$data['brand_id']}");
                         }
                         if ($modelName = \App\Models\CatalogValue::find($data['model_id'] ?? null)?->value) {
                             $indicators[] = Indicator::make("Modelo: {$modelName}");
@@ -938,6 +989,14 @@ class AuctionResource extends Resource
                                     ->numeric()
                                     ->prefix('$')
                                     ->placeholder('100,000'),
+                                Select::make('plate')
+                                    ->label('Placa')
+                                    ->placeholder('Placa...')
+                                    ->searchable()
+                                    ->preload()
+                                    ->options(fn() => \App\Models\Vehicle::pluck('plate', 'plate'))
+                                    ->live()
+                                    ->columnSpanFull(),
                             ]),
                     ])
                     ->query(function (Builder $query, array $data): Builder {
@@ -949,6 +1008,9 @@ class AuctionResource extends Resource
                             ->when(
                                 $data['price_to'],
                                 fn(Builder $query, $price): Builder => $query->where('base_price', '<=', $price),
+                            )
+                            ->when($data['plate'], fn(Builder $query, $plate): Builder =>
+                                $query->whereHas('vehicle', fn($q) => $q->where('plate', $plate))
                             );
                     })
                     ->indicateUsing(function (array $data): array {
@@ -958,6 +1020,9 @@ class AuctionResource extends Resource
                         }
                         if ($data['price_to'] ?? null) {
                             $indicators[] = Indicator::make('Precio máximo: $' . number_format($data['price_to'], 0, '.', ','));
+                        }
+                        if ($data['plate'] ?? null) {
+                            $indicators[] = Indicator::make("Placa: {$data['plate']}");
                         }
                         return $indicators;
                     }),
@@ -971,7 +1036,6 @@ class AuctionResource extends Resource
                     ->size('sm')
                     ->color('gray')
             )
-
             ->actions([
                 Tables\Actions\ViewAction::make()
                     ->url(fn(Auction $record): string => static::getUrl('view', ['record' => $record]))
@@ -980,12 +1044,12 @@ class AuctionResource extends Resource
                 Tables\Actions\EditAction::make()
                     ->hidden(function (Model $record): bool {
                         $user = Auth::user();
-                        
+
                         // Si es el creador del registro
                         if ($record->appraiser_id === $user->id) {
                             return false;
                         }
-                        
+
                         // Verificar si tiene roles permitidos
                         $hasPermittedRole = DB::table('model_has_roles')
                             ->join('roles', 'model_has_roles.role_id', '=', 'roles.id')
@@ -993,19 +1057,19 @@ class AuctionResource extends Resource
                             ->where('model_has_roles.model_type', 'App\\Models\\User')
                             ->whereIn('roles.name', ['super_admin', 'administrador'])
                             ->exists();
-                            
+
                         return !$hasPermittedRole;
                     }),
 
                 Tables\Actions\DeleteAction::make()
                     ->hidden(function (Model $record): bool {
                         $user = Auth::user();
-                        
+
                         // Si es el creador del registro
                         if ($record->appraiser_id === $user->id) {
                             return false;
                         }
-                        
+
                         // Verificar si tiene roles permitidos
                         $hasPermittedRole = DB::table('model_has_roles')
                             ->join('roles', 'model_has_roles.role_id', '=', 'roles.id')
@@ -1013,12 +1077,12 @@ class AuctionResource extends Resource
                             ->where('model_has_roles.model_type', 'App\\Models\\User')
                             ->whereIn('roles.name', ['super_admin', 'administrador'])
                             ->exists();
-                            
+
                         return !$hasPermittedRole;
                     }),
             ])
             ->bulkActions([
-               
+
             ])
             ->defaultSort('start_date', 'desc')
             ->striped();
