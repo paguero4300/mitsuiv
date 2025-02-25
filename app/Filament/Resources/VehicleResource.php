@@ -22,6 +22,7 @@ use Filament\Forms\Components\Wizard\Step;
 use Filament\Forms\Components\Actions\Action;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Facades\Blade;
+use Illuminate\Database\Eloquent\Collection;
 
 class VehicleResource extends Resource
 {
@@ -643,9 +644,73 @@ class VehicleResource extends Resource
                 ]),
             ])
             ->filters([])
-            ->actions([])
+            ->actions([
+                Tables\Actions\DeleteAction::make()
+                    ->action(function (Vehicle $record, Tables\Actions\DeleteAction $action) {
+                        try {
+                            $record->delete();
+                            Notification::make()
+                                ->success()
+                                ->title('Vehículo eliminado')
+                                ->body('El vehículo ha sido eliminado correctamente.')
+                                ->send();
+                        } catch (\Illuminate\Validation\ValidationException $e) {
+                            Notification::make()
+                                ->danger()
+                                ->title('No se puede eliminar el vehículo')
+                                ->body($e->getMessage() ?? 'No se puede eliminar el vehículo porque está asociado a una o más subastas.')
+                                ->send();
+                            $action->halt();
+                        } catch (\Exception $e) {
+                            Notification::make()
+                                ->danger()
+                                ->title('Error al eliminar')
+                                ->body('Ocurrió un error al eliminar el vehículo: ' . $e->getMessage())
+                                ->send();
+                            $action->halt();
+                        }
+                    }),
+            ])
             ->bulkActions([
-                Tables\Actions\DeleteBulkAction::make(),
+                Tables\Actions\DeleteBulkAction::make()
+                    ->action(function (Collection $records, Tables\Actions\DeleteBulkAction $action) {
+                        $deletedCount = 0;
+                        $errorCount = 0;
+                        $auctionErrors = 0;
+                        
+                        $records->each(function (Vehicle $record) use (&$deletedCount, &$errorCount, &$auctionErrors) {
+                            try {
+                                $record->delete();
+                                $deletedCount++;
+                            } catch (\Illuminate\Validation\ValidationException $e) {
+                                $auctionErrors++;
+                            } catch (\Exception $e) {
+                                $errorCount++;
+                            }
+                        });
+                        
+                        if ($deletedCount > 0) {
+                            Notification::make()
+                                ->success()
+                                ->title($deletedCount . ' ' . ($deletedCount === 1 ? 'vehículo eliminado' : 'vehículos eliminados'))
+                                ->send();
+                        }
+                        
+                        if ($auctionErrors > 0) {
+                            Notification::make()
+                                ->danger()
+                                ->title('No se pudieron eliminar ' . $auctionErrors . ' ' . ($auctionErrors === 1 ? 'vehículo' : 'vehículos'))
+                                ->body('Hay ' . ($auctionErrors === 1 ? 'vehículo asociado' : 'vehículos asociados') . ' a subastas.')
+                                ->send();
+                        }
+                        
+                        if ($errorCount > 0) {
+                            Notification::make()
+                                ->danger()
+                                ->title('Ocurrieron errores al eliminar ' . $errorCount . ' ' . ($errorCount === 1 ? 'vehículo' : 'vehículos'))
+                                ->send();
+                        }
+                    }),
             ]);
     }
 

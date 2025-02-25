@@ -6,13 +6,12 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Builder;
-use Spatie\MediaLibrary\InteractsWithMedia;
-use Spatie\MediaLibrary\MediaCollections\Models\Media;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Spatie\MediaLibrary\HasMedia;
+use Illuminate\Database\Eloquent\Events\Deleting;
+use Illuminate\Validation\ValidationException;
 
-class Vehicle extends Model implements HasMedia
+class Vehicle extends Model
 {
     protected $fillable = [
         'plate',
@@ -47,12 +46,6 @@ class Vehicle extends Model implements HasMedia
         'tarjeta_expiry' => 'date',
     ];
 
-    use InteractsWithMedia;
-
-   
-
-    
-
     public function brand(): BelongsTo
     {
         return $this->belongsTo(CatalogValue::class, 'brand_id')
@@ -67,8 +60,6 @@ class Vehicle extends Model implements HasMedia
             ->select(['id', 'value', 'catalog_type_id'])
             ->where('catalog_type_id', 2);
     }
-
-   
 
     public function transmission()
     {
@@ -110,7 +101,6 @@ class Vehicle extends Model implements HasMedia
         return $this->belongsTo(CatalogValue::class, 'location_id')->select('id', 'value');
     }
 
-
     public function equipment(): HasOne
     {
         return $this->hasOne(VehicleEquipment::class);
@@ -136,35 +126,6 @@ class Vehicle extends Model implements HasMedia
     public function getDocumentByType(string $type): ?VehicleDocument
     {
         return $this->documents()->where('type', $type)->first();
-    }
-
-    public function registerMediaCollections(): void
-    {
-        $this->addMediaCollection('vehicle-images')
-            ->useDisk('public');
-            
-        $this->addMediaCollection('soat_document')
-            ->singleFile()
-            ->useDisk('public');
-            
-        $this->addMediaCollection('revision_document')
-            ->singleFile()
-            ->useDisk('public');
-            
-        $this->addMediaCollection('tarjeta_document')
-            ->singleFile()
-            ->useDisk('public');
-    }
-
-    public function registerMediaConversions(Media $media = null): void
-    {
-        $this->addMediaConversion('thumb')
-            ->width(200)
-            ->height(200);
-
-        $this->addMediaConversion('preview')
-            ->width(800)
-            ->height(600);
     }
 
     public function soat_document(): HasOne
@@ -287,4 +248,30 @@ class Vehicle extends Model implements HasMedia
         ];
     }
 
+    /**
+     * Verificar si el vehículo tiene subastas relacionadas
+     *
+     * @return bool
+     */
+    public function hasAuctions(): bool
+    {
+        return $this->auctions()->count() > 0;
+    }
+
+    /**
+     * Configuración de eventos del modelo
+     */
+    protected static function boot()
+    {
+        parent::boot();
+
+        // Antes de eliminar un vehículo, verificar si tiene subastas relacionadas
+        static::deleting(function (Vehicle $vehicle) {
+            if ($vehicle->hasAuctions()) {
+                throw ValidationException::withMessages([
+                    'vehicle' => ['No se puede eliminar el vehículo porque está asociado a una o más subastas.']
+                ]);
+            }
+        });
+    }
 }
