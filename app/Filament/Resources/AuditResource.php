@@ -4,7 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\AuditResource\Pages;
 use App\Filament\Resources\AuditResource\RelationManagers;
-use OwenIt\Auditing\Models\Audit;
+use App\Models\Audit;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -243,16 +243,19 @@ class AuditResource extends Resource
 
     public static function canCreate(): bool
     {
-        return false; // No se pueden crear registros de auditoría manualmente
+        // Usar el sistema de permisos de Shield en lugar de hardcodear false
+        return false; // Auditoría nunca debe crearse manualmente
     }
 
-    public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
+    public static function canEdit(Model $record): bool
     {
-        return false; // No se pueden editar registros de auditoría
+        // Usar el sistema de permisos de Shield en lugar de hardcodear false
+        return false; // Auditoría nunca debe editarse
     }
 
-    public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
+    public static function canDelete(Model $record): bool
     {
-        return false; // No se pueden eliminar registros de auditoría
+        // Usar el sistema de permisos de Shield en lugar de hardcodear false
+        return false; // Auditoría nunca debe eliminarse
     }
 }
