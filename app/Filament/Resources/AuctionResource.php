@@ -33,10 +33,6 @@ use Filament\Infolists\Components\IconEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Infolists\InfoList;
 use Filament\Infolists\Components\ViewEntry;
-use Hydrat\TableLayoutToggle\Concerns\HasToggleableTable;
-use Filament\Tables\Filters\TernaryFilter;
-use Illuminate\Support\Facades\Storage;
-use Filament\Forms\Components\Card;
 use Filament\Infolists\Components\Actions\Action;
 use Filament\Actions\Action as FilamentAction;
 use Illuminate\Support\HtmlString;
@@ -48,6 +44,9 @@ use Closure;
 use Illuminate\Support\Facades\DB;
 use App\Models\User;
 use App\Livewire\AuctionStatusInfo;
+use Filament\Tables\Filters\TernaryFilter;
+use Filament\Tables\Actions\HeaderActionsPosition;
+use Illuminate\Support\Facades\Storage;
 
 
 class AuctionResource extends Resource
@@ -638,6 +637,34 @@ class AuctionResource extends Resource
 
     public static function table(Table $table): Table
     {
+        // Obtener la vista de la sesión o usar la predeterminada
+        $view = session()->get('auction_table_view', 'card');
+        
+        // Determinar las columnas según la vista seleccionada
+        $columns = match($view) {
+            'table' => self::getTableColumns(),
+            'compact' => self::getCompactColumns(),
+            default => self::getCardColumns(),
+        };
+        
+        // Determinar la configuración de grid según la vista
+        $contentGrid = match($view) {
+            'card' => [
+                'default' => 1,
+                'sm' => 1,
+                'md' => 2,
+                'xl' => 3,
+            ],
+            'table' => null,
+            'compact' => null,
+            default => [
+                'default' => 1,
+                'sm' => 1,
+                'md' => 2,
+                'xl' => 3,
+            ],
+        };
+
         return $table
             ->poll('10s')
             ->modifyQueryUsing(fn (Builder $query) => $query->with([
@@ -647,189 +674,44 @@ class AuctionResource extends Resource
                 'vehicle.images',
                 'status'
             ]))
-            ->columns([
-                Stack::make([
-                    Tables\Columns\ImageColumn::make('vehicle.images')
-                        ->height(200)
-                        ->width('100%')
-                        ->defaultImageUrl(url('/images/vehiculo.png'))
-                        ->state(fn($record) => optional($record->vehicle->images()->where('is_main', true)->first())->path)
-                        ->alignment('center')
-                        ->extraImgAttributes([
-                            'class' => 'w-full h-[200px] object-cover rounded-t-xl',
-                        ]),
-
-                    Tables\Columns\Layout\Grid::make([
-                        'default' => 2,
-                        'sm' => 2,
-                    ])
-                    ->schema([
-                        Tables\Columns\TextColumn::make('start_date')
-                            ->label('Fecha')
-                            ->formatStateUsing(function (Auction $record): string {
-                                $start = Carbon::parse($record->start_date)->timezone('America/Lima');
-                                $now = now()->timezone('America/Lima');
-
-                                $dateStr = $start->format('d/m/Y');
-
-                                if ($start->gt($now)) {
-                                    $interval = $now->diff($start);
-                                    $totalHours = ($interval->days * 24) + $interval->h;
-                                    return "{$dateStr} ({$totalHours}h {$interval->i}m {$interval->s}s)";
-                                }
-
-                                return $dateStr;
-                            })
-                            ->badge()
-                            ->color(function (Auction $record) {
-                                $start = Carbon::parse($record->start_date)->timezone('America/Lima');
-                                $now = now()->timezone('America/Lima');
-
-                                if ($start->gt($now)) {
-                                    $hoursRemaining = $now->diffInHours($start, false);
-
-                                    if ($hoursRemaining <= 1) {
-                                        return 'danger';
-                                    } elseif ($hoursRemaining <= 6) {
-                                        return 'warning';
-                                    } elseif ($hoursRemaining <= 24) {
-                                        return 'info';
-                                    } else {
-                                        return 'success';
-                                    }
-                                }
-
-                                return null;
-                            })
-                            ->extraAttributes([
-                                'class' => 'text-gray-600 font-medium',
-                            ]),
-                    ])
-                    ->extraAttributes([
-                        'class' => 'gap-2 items-center',
-                    ]),
-
-                    Tables\Columns\Layout\Grid::make()
-                        ->schema([
-                            Tables\Columns\TextColumn::make('vehicle.plate')
-                                ->label('Placa')
-                                ->formatStateUsing(fn ($state): string => "Placa: {$state}")
-                                ->extraAttributes([
-                                    'class' => 'text-lg font-bold text-primary-600',
-                                ]),
-
-                            Tables\Columns\TextColumn::make('vehicle.brand.value')
-                                ->label('Marca')
-                                ->formatStateUsing(fn ($state): string => "Marca: {$state}")
-                                ->extraAttributes([
-                                    'class' => 'text-gray-600',
-                                ]),
-
-                            Tables\Columns\TextColumn::make('vehicle.model.value')
-                                ->label('Modelo')
-                                ->formatStateUsing(fn ($state): string => "Modelo: {$state}")
-                                ->extraAttributes([
-                                    'class' => 'text-gray-800',
-                                ]),
-
-                            Tables\Columns\TextColumn::make('vehicle.year_made')
-                                ->label('Año')
-                                ->formatStateUsing(fn ($state): string => "Año: {$state}")
-                                ->extraAttributes([
-                                    'class' => 'text-gray-600',
-                                ]),
-
-                            Tables\Columns\TextColumn::make('base_price')
-                                ->label('Base')
-                                ->formatStateUsing(fn ($state): string => "Base: $ " . number_format((int)($state ?? 0), 0, '', ','))
-                                ->extraAttributes([
-                                    'class' => 'text-success-600 font-bold',
-                                ]),
-
-                            Tables\Columns\TextColumn::make('current_price')
-                                ->label('Actual')
-                                ->formatStateUsing(fn ($state): string => "Actual: $ " . number_format((int)($state ?? 0), 0, '', ','))
-                                ->extraAttributes([
-                                    'class' => 'text-primary-600 font-bold',
-                                ]),
-
-                            Tables\Columns\TextColumn::make('end_date')
-                                ->formatStateUsing(function (Auction $record) {
-                                    $now = now()->timezone('America/Lima');
-                                    $startDate = Carbon::parse($record->start_date)->timezone('America/Lima');
-                                    $endDate = Carbon::parse($record->end_date)->timezone('America/Lima');
-
-                                    if ($startDate->gt($now)) {
-                                        return null;
-                                    }
-
-                                    if ($endDate->isPast()) {
-                                        return "Tiempo: Finalizada";
-                                    }
-
-                                    $remaining = $now->diff($endDate);
-                                    $totalHours = ($remaining->days * 24) + $remaining->h;
-                                    return "Tiempo: {$totalHours}h {$remaining->i}m {$remaining->s}s";
-                                })
-                                ->color(function (Auction $record) {
-                                    $now = now()->timezone('America/Lima');
-                                    $startDate = Carbon::parse($record->start_date)->timezone('America/Lima');
-                                    $endDate = Carbon::parse($record->end_date)->timezone('America/Lima');
-
-                                    if ($startDate->gt($now) || $endDate->isPast()) {
-                                        return null;
-                                    }
-
-                                    $hoursRemaining = $now->diffInHours($endDate, false);
-
-                                    if ($hoursRemaining <= 1) {
-                                        return 'danger';
-                                    } elseif ($hoursRemaining <= 6) {
-                                        return 'warning';
-                                    } elseif ($hoursRemaining <= 24) {
-                                        return 'info';
-                                    } else {
-                                        return 'success';
-                                    }
-                                })
-                                ->extraAttributes([
-                                    'class' => 'text-gray-600 font-medium',
-                                ]),
-
-                            Tables\Columns\TextColumn::make('status.name')
-                                ->formatStateUsing(fn (string $state): string => "Estado: {$state}")
-                                ->badge()
-                                ->color(fn (string $state): string => match ($state) {
-                                    'Sin Oferta' => 'danger',
-                                    'En Proceso' => 'warning',
-                                    'Finalizada' => 'success',
-                                    default => 'gray'
-                                })
-                                ->extraAttributes([
-                                    'class' => 'text-sm',
-                                ]),
-                        ])
-                        ->columns([
-                            'default' => 1,
-                            'sm' => 1,
-                            'md' => 2,
-                        ])
-                        ->extraAttributes([
-                            'class' => 'gap-y-2 p-4',
-                        ]),
-                ])
-                ->space(3)
-                ->extraAttributes([
-                    'class' => 'rounded-xl shadow-sm',
-                ]),
+            ->headerActions([
+                Tables\Actions\Action::make('cardView')
+                    ->label('Vista Tarjetas')
+                    ->icon('heroicon-o-squares-2x2')
+                    ->button()
+                    ->size('sm')
+                    ->color(fn() => session()->get('auction_table_view', 'card') === 'card' ? 'primary' : 'gray')
+                    ->action(function () {
+                        session()->put('auction_table_view', 'card');
+                        return redirect(request()->header('Referer'));
+                    }),
+                    
+                Tables\Actions\Action::make('tableView')
+                    ->label('Vista Tabla')
+                    ->icon('heroicon-o-table-cells')
+                    ->button()
+                    ->size('sm')
+                    ->color(fn() => session()->get('auction_table_view', 'card') === 'table' ? 'primary' : 'gray')
+                    ->action(function () {
+                        session()->put('auction_table_view', 'table');
+                        return redirect(request()->header('Referer'));
+                    }),
+                    
+                Tables\Actions\Action::make('compactView')
+                    ->label('Vista Compacta')
+                    ->icon('heroicon-o-list-bullet')
+                    ->button()
+                    ->size('sm')
+                    ->color(fn() => session()->get('auction_table_view', 'card') === 'compact' ? 'primary' : 'gray')
+                    ->action(function () {
+                        session()->put('auction_table_view', 'compact');
+                        return redirect(request()->header('Referer'));
+                    }),
             ])
-            ->contentGrid([
-                'default' => 1,
-                'sm' => 1,
-                'md' => 2,
-                'xl' => 3,
-            ])
-            ->bulkActions([])
+            ->headerActionsPosition(HeaderActionsPosition::Bottom)
+            ->columns($columns)
+            ->contentGrid($contentGrid)
+            ->defaultPaginationPageOption(50)
             ->filters([
                 SelectFilter::make('appraiser_id')
                     ->label('Tasador')
@@ -1081,11 +963,296 @@ class AuctionResource extends Resource
                         return !$hasPermittedRole;
                     }),
             ])
-            ->bulkActions([
-
-            ])
+            ->bulkActions([])
             ->defaultSort('start_date', 'desc')
             ->striped();
+    }
+
+    // Método para obtener columnas en vista de tarjetas
+    public static function getCardColumns(): array 
+    {
+        return [
+            Stack::make([
+                Tables\Columns\ImageColumn::make('vehicle.images')
+                    ->height(200)
+                    ->width('100%')
+                    ->defaultImageUrl(url('/images/vehiculo.png'))
+                    ->state(fn($record) => optional($record->vehicle->images()->where('is_main', true)->first())->path)
+                    ->alignment('center')
+                    ->extraImgAttributes([
+                        'class' => 'w-full h-[200px] object-cover rounded-t-xl',
+                    ]),
+
+                Tables\Columns\Layout\Grid::make([
+                    'default' => 2,
+                    'sm' => 2,
+                ])
+                ->schema([
+                    Tables\Columns\TextColumn::make('start_date')
+                        ->label('Fecha')
+                        ->formatStateUsing(function (Auction $record): string {
+                            $start = Carbon::parse($record->start_date)->timezone('America/Lima');
+                            $now = now()->timezone('America/Lima');
+
+                            $dateStr = $start->format('d/m/Y');
+
+                            if ($start->gt($now)) {
+                                $interval = $now->diff($start);
+                                $totalHours = ($interval->days * 24) + $interval->h;
+                                return "{$dateStr} ({$totalHours}h {$interval->i}m {$interval->s}s)";
+                            }
+
+                            return $dateStr;
+                        })
+                        ->badge()
+                        ->color(function (Auction $record) {
+                            $start = Carbon::parse($record->start_date)->timezone('America/Lima');
+                            $now = now()->timezone('America/Lima');
+
+                            if ($start->gt($now)) {
+                                $hoursRemaining = $now->diffInHours($start, false);
+
+                                if ($hoursRemaining <= 1) {
+                                    return 'danger';
+                                } elseif ($hoursRemaining <= 6) {
+                                    return 'warning';
+                                } elseif ($hoursRemaining <= 24) {
+                                    return 'info';
+                                } else {
+                                    return 'success';
+                                }
+                            }
+
+                            return null;
+                        })
+                        ->extraAttributes([
+                            'class' => 'text-gray-600 font-medium',
+                        ]),
+                ])
+                ->extraAttributes([
+                    'class' => 'gap-2 items-center',
+                ]),
+
+                Tables\Columns\Layout\Grid::make()
+                    ->schema([
+                        Tables\Columns\TextColumn::make('vehicle.plate')
+                            ->label('Placa')
+                            ->formatStateUsing(fn ($state): string => "Placa: {$state}")
+                            ->extraAttributes([
+                                'class' => 'text-lg font-bold text-primary-600',
+                            ]),
+
+                        Tables\Columns\TextColumn::make('vehicle.brand.value')
+                            ->label('Marca')
+                            ->formatStateUsing(fn ($state): string => "Marca: {$state}")
+                            ->extraAttributes([
+                                'class' => 'text-gray-600',
+                            ]),
+
+                        Tables\Columns\TextColumn::make('vehicle.model.value')
+                            ->label('Modelo')
+                            ->formatStateUsing(fn ($state): string => "Modelo: {$state}")
+                            ->extraAttributes([
+                                'class' => 'text-gray-800',
+                            ]),
+
+                        Tables\Columns\TextColumn::make('vehicle.year_made')
+                            ->label('Año')
+                            ->formatStateUsing(fn ($state): string => "Año: {$state}")
+                            ->extraAttributes([
+                                'class' => 'text-gray-600',
+                            ]),
+
+                        Tables\Columns\TextColumn::make('base_price')
+                            ->label('Base')
+                            ->formatStateUsing(fn ($state): string => "Base: $ " . number_format((int)($state ?? 0), 0, '', ','))
+                            ->extraAttributes([
+                                'class' => 'text-success-600 font-bold',
+                            ]),
+
+                        Tables\Columns\TextColumn::make('current_price')
+                            ->label('Actual')
+                            ->formatStateUsing(fn ($state): string => "Actual: $ " . number_format((int)($state ?? 0), 0, '', ','))
+                            ->extraAttributes([
+                                'class' => 'text-primary-600 font-bold',
+                            ]),
+
+                        Tables\Columns\TextColumn::make('end_date')
+                            ->formatStateUsing(function (Auction $record) {
+                                $now = now()->timezone('America/Lima');
+                                $startDate = Carbon::parse($record->start_date)->timezone('America/Lima');
+                                $endDate = Carbon::parse($record->end_date)->timezone('America/Lima');
+
+                                if ($startDate->gt($now)) {
+                                    return null;
+                                }
+
+                                if ($endDate->isPast()) {
+                                    return "Tiempo: Finalizada";
+                                }
+
+                                $remaining = $now->diff($endDate);
+                                $totalHours = ($remaining->days * 24) + $remaining->h;
+                                return "Tiempo: {$totalHours}h {$remaining->i}m {$remaining->s}s";
+                            })
+                            ->color(function (Auction $record) {
+                                $now = now()->timezone('America/Lima');
+                                $startDate = Carbon::parse($record->start_date)->timezone('America/Lima');
+                                $endDate = Carbon::parse($record->end_date)->timezone('America/Lima');
+
+                                if ($startDate->gt($now) || $endDate->isPast()) {
+                                    return null;
+                                }
+
+                                $hoursRemaining = $now->diffInHours($endDate, false);
+
+                                if ($hoursRemaining <= 1) {
+                                    return 'danger';
+                                } elseif ($hoursRemaining <= 6) {
+                                    return 'warning';
+                                } elseif ($hoursRemaining <= 24) {
+                                    return 'info';
+                                } else {
+                                    return 'success';
+                                }
+                            })
+                            ->extraAttributes([
+                                'class' => 'text-gray-600 font-medium',
+                            ]),
+
+                        Tables\Columns\TextColumn::make('status.name')
+                            ->formatStateUsing(fn (string $state): string => "Estado: {$state}")
+                            ->badge()
+                            ->color(fn (string $state): string => match ($state) {
+                                'Sin Oferta' => 'danger',
+                                'En Proceso' => 'warning',
+                                'Finalizada' => 'success',
+                                default => 'gray'
+                            })
+                            ->extraAttributes([
+                                'class' => 'text-sm',
+                            ]),
+                    ])
+                    ->columns([
+                        'default' => 1,
+                        'sm' => 1,
+                        'md' => 2,
+                    ])
+                    ->extraAttributes([
+                        'class' => 'gap-y-2 p-4',
+                    ]),
+            ])
+            ->space(3)
+            ->extraAttributes([
+                'class' => 'rounded-xl shadow-sm',
+            ]),
+        ];
+    }
+    
+    // Método para obtener columnas en vista de tabla tradicional
+    public static function getTableColumns(): array 
+    {
+        return [
+            Tables\Columns\TextColumn::make('vehicle.plate')
+                ->label('Placa')
+                ->searchable()
+                ->sortable()
+                ->weight('bold'),
+                
+            Tables\Columns\TextColumn::make('vehicle.brand.value')
+                ->label('Marca')
+                ->searchable()
+                ->sortable(),
+                
+            Tables\Columns\TextColumn::make('vehicle.model.value')
+                ->label('Modelo')
+                ->searchable()
+                ->sortable(),
+                
+            Tables\Columns\TextColumn::make('vehicle.year_made')
+                ->label('Año')
+                ->searchable()
+                ->sortable(),
+                
+            Tables\Columns\TextColumn::make('base_price')
+                ->label('Precio Base')
+                ->money('USD')
+                ->sortable(),
+                
+            Tables\Columns\TextColumn::make('current_price')
+                ->label('Precio Actual')
+                ->money('USD')
+                ->sortable()
+                ->weight('bold')
+                ->color('primary'),
+                
+            Tables\Columns\TextColumn::make('start_date')
+                ->label('Fecha Inicio')
+                ->dateTime('d/m/Y H:i')
+                ->sortable(),
+                
+            Tables\Columns\TextColumn::make('end_date')
+                ->label('Fecha Fin')
+                ->dateTime('d/m/Y H:i')
+                ->sortable(),
+                
+            Tables\Columns\IconColumn::make('is_active')
+                ->label('Activa')
+                ->boolean()
+                ->getStateUsing(fn (Auction $record) => Carbon::parse($record->end_date)->isFuture()),
+                
+            Tables\Columns\TextColumn::make('status.name')
+                ->label('Estado')
+                ->badge()
+                ->color(fn (string $state): string => match ($state) {
+                    'Sin Oferta' => 'danger',
+                    'En Proceso' => 'warning',
+                    'Finalizada' => 'success',
+                    default => 'gray'
+                }),
+        ];
+    }
+    
+    // Método para obtener columnas en vista compacta
+    public static function getCompactColumns(): array 
+    {
+        return [
+            Tables\Columns\TextColumn::make('vehicle.plate')
+                ->label('Placa')
+                ->searchable()
+                ->sortable()
+                ->weight('bold'),
+                
+            Tables\Columns\TextColumn::make('vehicle.brand.value')
+                ->label('Marca')
+                ->searchable()
+                ->sortable(),
+                
+            Tables\Columns\TextColumn::make('vehicle.model.value')
+                ->label('Modelo')
+                ->searchable()
+                ->sortable(),
+                
+            Tables\Columns\TextColumn::make('base_price')
+                ->label('Precio Base')
+                ->money('USD')
+                ->sortable(),
+                
+            Tables\Columns\TextColumn::make('end_date')
+                ->label('Finaliza')
+                ->dateTime('d/m/Y H:i')
+                ->sortable(),
+                
+            Tables\Columns\TextColumn::make('status.name')
+                ->label('Estado')
+                ->badge()
+                ->color(fn (string $state): string => match ($state) {
+                    'Sin Oferta' => 'danger',
+                    'En Proceso' => 'warning',
+                    'Finalizada' => 'success',
+                    default => 'gray'
+                }),
+        ];
     }
 
     public static function getRelations(): array

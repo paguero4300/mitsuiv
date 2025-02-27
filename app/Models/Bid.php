@@ -4,9 +4,20 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use OwenIt\Auditing\Contracts\Auditable;
+use OwenIt\Auditing\Auditable as AuditableTrait;
 
-class Bid extends Model
+class Bid extends Model implements Auditable
 {
+    use AuditableTrait;
+    
+    // Determinar qué campos serán auditados (opcional)
+    protected $auditInclude = [
+        'auction_id',
+        'reseller_id',
+        'amount',
+    ];
+    
     protected $fillable = [
         'auction_id',
         'reseller_id',

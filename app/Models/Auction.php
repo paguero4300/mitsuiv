@@ -9,10 +9,23 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
+use OwenIt\Auditing\Contracts\Auditable;
+use OwenIt\Auditing\Auditable as AuditableTrait;
 
-class Auction extends Model
+class Auction extends Model implements Auditable
 {
-    use HasBidStatus;
+    use HasBidStatus, AuditableTrait;
+
+    // Determinar qué campos serán auditados (opcional)
+    protected $auditInclude = [
+        'vehicle_id',
+        'appraiser_id',
+        'status_id',
+        'start_date',
+        'end_date',
+        'base_price',
+        'current_price'
+    ];
 
     protected $fillable = [
         'vehicle_id',

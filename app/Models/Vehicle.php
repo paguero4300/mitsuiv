@@ -10,9 +10,34 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Database\Eloquent\Events\Deleting;
 use Illuminate\Validation\ValidationException;
+use OwenIt\Auditing\Contracts\Auditable;
+use OwenIt\Auditing\Auditable as AuditableTrait;
 
-class Vehicle extends Model
+class Vehicle extends Model implements Auditable
 {
+    use AuditableTrait;
+
+    // Determinar qué campos serán auditados (opcional)
+    protected $auditInclude = [
+        'plate',
+        'brand_id',
+        'model_id',
+        'version',
+        'transmission_id',
+        'body_type_id',
+        'year_made',
+        'model_year',
+        'engine_cc',
+        'cylinders_id',
+        'fuel_type_id',
+        'mileage',
+        'doors_id',
+        'traction_id',
+        'color_id',
+        'location_id',
+        'additional_description',
+    ];
+
     protected $fillable = [
         'plate',
         'brand_id',

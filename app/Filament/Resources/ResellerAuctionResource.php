@@ -37,6 +37,7 @@ use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\Layout\Stack;
 use Filament\Notifications\Notification;
+use Filament\Tables\Actions\HeaderActionsPosition;
                                                                                                                                                                                                                                                                                                                                                                                                                                
 
 class ResellerAuctionResource extends Resource 
@@ -50,8 +51,349 @@ class ResellerAuctionResource extends Resource
     protected static ?int $navigationSort = 1;
     protected static ?string $slug = 'reseller-auctions';
 
+    // Método para obtener columnas en vista de tarjetas
+    public static function getCardColumns(): array 
+    {
+        return [
+            Stack::make([
+                // Imagen del vehículo
+                Tables\Columns\ImageColumn::make('vehicle.images')
+                    ->height(200)
+                    ->width('100%')
+                    ->defaultImageUrl(url('/images/vehiculo.png'))
+                    ->state(fn($record) => optional($record->vehicle->images()->where('is_main', true)->first())->path)
+                    ->alignment('center')
+                    ->extraAttributes([
+                        'class' => 'w-full h-[200px] object-cover rounded-t-xl',
+                    ]),
 
+                // Grid de información
+                Tables\Columns\Layout\Grid::make([
+                    'default' => 2,
+                    'sm' => 2,
+                ])
+                ->schema([
+                    Tables\Columns\TextColumn::make('start_date')
+                        ->label('Fecha')
+                        ->formatStateUsing(function (Auction $record): string {
+                            $start = Carbon::parse($record->start_date)->timezone('America/Lima');
+                            $now = now()->timezone('America/Lima');
+                            
+                            $dateStr = $start->format('d/m/Y');
+                            
+                            if ($start->gt($now)) {
+                                $interval = $now->diff($start);
+                                $parts = [];
+                                
+                                if ($interval->d > 0) {
+                                    $parts[] = "{$interval->d}d";
+                                }
+                                if ($interval->h > 0) {
+                                    $parts[] = "{$interval->h}h";
+                                }
+                                if ($interval->i > 0) {
+                                    $parts[] = "{$interval->i}m";
+                                }
+                                if ($interval->s > 0) {
+                                    $parts[] = "{$interval->s}s";
+                                }
+                                
+                                $timeLeft = empty($parts) ? "< 1s" : implode(' ', $parts);
+                                return "{$dateStr} (Inicia en: {$timeLeft})";
+                            }
+                            
+                            return $dateStr;
+                        })
+                        ->badge()
+                        ->color(function (Auction $record) {
+                            $start = Carbon::parse($record->start_date)->timezone('America/Lima');
+                            $now = now()->timezone('America/Lima');
+                            
+                            if ($start->gt($now)) {
+                                $hoursRemaining = $now->diffInHours($start, false);
+                                
+                                if ($hoursRemaining <= 1) {
+                                    return 'danger';
+                                } elseif ($hoursRemaining <= 6) {
+                                    return 'warning';
+                                } elseif ($hoursRemaining <= 24) {
+                                    return 'info';
+                                } else {
+                                    return 'success';
+                                }
+                            }
+                            
+                            return null;
+                        })
+                        ->extraAttributes([
+                            'class' => 'text-gray-600 font-medium',
+                        ]),
+                ])
+                ->extraAttributes([
+                    'class' => 'gap-2 items-center',
+                ]),
 
+                Tables\Columns\Layout\Grid::make()
+                    ->schema([
+                        Tables\Columns\TextColumn::make('vehicle.plate')
+                            ->label('Placa')
+                            ->formatStateUsing(fn ($state): string => "Placa: {$state}")
+                            ->extraAttributes([
+                                'class' => 'text-lg font-bold text-primary-600',
+                            ]),
+
+                        Tables\Columns\TextColumn::make('vehicle.brand.value')
+                            ->label('Marca')
+                            ->formatStateUsing(fn ($state): string => "Marca: {$state}")
+                            ->extraAttributes([
+                                'class' => 'text-gray-600',
+                            ]),
+
+                        Tables\Columns\TextColumn::make('vehicle.model.value')
+                            ->label('Modelo')
+                            ->formatStateUsing(fn ($state): string => "Modelo: {$state}")
+                            ->extraAttributes([
+                                'class' => 'text-gray-800',
+                            ]),
+
+                        Tables\Columns\TextColumn::make('vehicle.year_made')
+                            ->label('Año')
+                            ->formatStateUsing(fn ($state): string => "Año: {$state}")
+                            ->extraAttributes([
+                                'class' => 'text-gray-600',
+                            ]),
+
+                        Tables\Columns\TextColumn::make('base_price')
+                            ->label('Base')
+                            ->formatStateUsing(fn ($state): string => "Base: $ " . number_format($state ?? 0, 0, '.', ','))
+                            ->extraAttributes([
+                                'class' => 'text-success-600 font-bold',
+                            ]),
+
+                        Tables\Columns\TextColumn::make('current_price')
+                            ->label('Actual')
+                            ->formatStateUsing(fn ($state): string => "Actual: $ " . number_format($state ?? 0, 0, '.', ','))
+                            ->extraAttributes([
+                                'class' => 'text-primary-600 font-bold',
+                            ]),
+
+                        Tables\Columns\TextColumn::make('end_date')
+                            ->formatStateUsing(function (Auction $record) {
+                                $now = now()->timezone('America/Lima');
+                                $startDate = Carbon::parse($record->start_date)->timezone('America/Lima');
+                                $endDate = Carbon::parse($record->end_date)->timezone('America/Lima');
+
+                                if ($startDate->gt($now)) {
+                                    return null;
+                                }
+
+                                if ($endDate->isPast()) {
+                                    return "Tiempo: Finalizada";
+                                }
+
+                                $remaining = $now->diff($endDate);
+                                
+                                if ($remaining->days > 0) {
+                                    return "Tiempo: {$remaining->days}d {$remaining->h}h {$remaining->i}m {$remaining->s}s";
+                                } elseif ($remaining->h > 0) {
+                                    return "Tiempo: {$remaining->h}h {$remaining->i}m {$remaining->s}s";
+                                } elseif ($remaining->i > 0) {
+                                    return "Tiempo: {$remaining->i}m {$remaining->s}s";
+                                } else {
+                                    return "Tiempo: {$remaining->s}s";
+                                }
+                            })
+                            ->color(function (Auction $record) {
+                                $now = now()->timezone('America/Lima');
+                                $startDate = Carbon::parse($record->start_date)->timezone('America/Lima');
+                                $endDate = Carbon::parse($record->end_date)->timezone('America/Lima');
+
+                                if ($startDate->gt($now) || $endDate->isPast()) {
+                                    return null;
+                                }
+                                
+                                $hoursRemaining = $now->diffInHours($endDate, false);
+                                
+                                if ($hoursRemaining <= 1) {
+                                    return 'danger';
+                                } elseif ($hoursRemaining <= 6) {
+                                    return 'warning';
+                                } elseif ($hoursRemaining <= 24) {
+                                    return 'info';
+                                } else {
+                                    return 'success';
+                                }
+                            })
+                            ->extraAttributes([
+                                'class' => 'text-gray-600 font-medium',
+                            ]),
+
+                        Tables\Columns\TextColumn::make('status.name')
+                            ->formatStateUsing(fn (string $state): string => "Estado: {$state}")
+                            ->badge()
+                            ->color(fn (string $state): string => match ($state) {
+                                'Sin Oferta' => 'danger',
+                                'En Proceso' => 'warning',
+                                'Finalizada' => 'success',
+                                default => 'gray'
+                            })
+                            ->extraAttributes([
+                                'class' => 'text-sm',
+                            ]),
+
+                            // Agregamos el estado de la puja específico para ResellerAuction
+                            Tables\Columns\TextColumn::make('bid_status')
+                                ->label('Mi Puja')
+                                ->formatStateUsing(fn (string $state): string => "Mi Puja: {$state}")
+                                ->badge()
+                                ->color(fn ($record) => $record->bid_status_color)
+                                ->icon(fn ($record) => match($record->bid_status) {
+                                    'Puja Líder' => 'heroicon-o-trophy',
+                                    'Puja Superada' => 'heroicon-o-arrow-trending-down',
+                                    'Subasta Ganada' => 'heroicon-o-trophy',
+                                    'Subasta Adjudicada' => 'heroicon-o-trophy',
+                                    'Subasta Perdida' => 'heroicon-o-x-circle',
+                                    'Subasta Fallida' => 'heroicon-o-x-circle',
+                                    default => 'heroicon-o-minus-circle'
+                                })
+                                ->extraAttributes([
+                                    'class' => 'text-sm',
+                                ]),
+                    ])
+                    ->columns([
+                        'default' => 1,
+                        'sm' => 1,
+                        'md' => 2,
+                    ])
+                    ->extraAttributes([
+                        'class' => 'gap-y-2 p-4',
+                    ]),
+            ])
+            ->space(3)
+            ->extraAttributes([
+                'class' => 'rounded-xl shadow-sm',
+            ]),
+        ];
+    }
+    
+    // Método para obtener columnas en vista de tabla tradicional
+    public static function getTableColumns(): array 
+    {
+        return [
+            Tables\Columns\TextColumn::make('vehicle.plate')
+                ->label('Placa')
+                ->searchable()
+                ->sortable()
+                ->weight('bold'),
+                
+            Tables\Columns\TextColumn::make('vehicle.brand.value')
+                ->label('Marca')
+                ->searchable()
+                ->sortable(),
+                
+            Tables\Columns\TextColumn::make('vehicle.model.value')
+                ->label('Modelo')
+                ->searchable()
+                ->sortable(),
+                
+            Tables\Columns\TextColumn::make('vehicle.year_made')
+                ->label('Año')
+                ->searchable()
+                ->sortable(),
+                
+            Tables\Columns\TextColumn::make('base_price')
+                ->label('Precio Base')
+                ->money('USD')
+                ->sortable(),
+                
+            Tables\Columns\TextColumn::make('current_price')
+                ->label('Precio Actual')
+                ->money('USD')
+                ->sortable()
+                ->weight('bold')
+                ->color('primary'),
+                
+            Tables\Columns\TextColumn::make('end_date')
+                ->label('Fecha Fin')
+                ->dateTime('d/m/Y H:i')
+                ->sortable(),
+                
+            Tables\Columns\IconColumn::make('is_active')
+                ->label('Activa')
+                ->boolean()
+                ->getStateUsing(fn (Auction $record) => Carbon::parse($record->end_date)->isFuture()),
+                
+            Tables\Columns\TextColumn::make('status.name')
+                ->label('Estado')
+                ->badge()
+                ->color(fn (string $state): string => match ($state) {
+                    'Sin Oferta' => 'danger',
+                    'En Proceso' => 'warning',
+                    'Finalizada' => 'success',
+                    default => 'gray'
+                }),
+                
+            Tables\Columns\TextColumn::make('bid_status')
+                ->label('Mi Puja')
+                ->badge()
+                ->color(fn ($record) => $record->bid_status_color)
+                ->icon(fn ($record) => match($record->bid_status) {
+                    'Puja Líder' => 'heroicon-o-trophy',
+                    'Puja Superada' => 'heroicon-o-arrow-trending-down',
+                    'Subasta Ganada' => 'heroicon-o-trophy',
+                    'Subasta Adjudicada' => 'heroicon-o-trophy',
+                    'Subasta Perdida' => 'heroicon-o-x-circle',
+                    'Subasta Fallida' => 'heroicon-o-x-circle',
+                    default => 'heroicon-o-minus-circle'
+                }),
+        ];
+    }
+    
+    // Método para obtener columnas en vista compacta
+    public static function getCompactColumns(): array 
+    {
+        return [
+            Tables\Columns\TextColumn::make('vehicle.plate')
+                ->label('Placa')
+                ->searchable()
+                ->sortable()
+                ->weight('bold'),
+                
+            Tables\Columns\TextColumn::make('vehicle.brand.value')
+                ->label('Marca')
+                ->searchable()
+                ->sortable(),
+                
+            Tables\Columns\TextColumn::make('vehicle.model.value')
+                ->label('Modelo')
+                ->searchable()
+                ->sortable(),
+                
+            Tables\Columns\TextColumn::make('base_price')
+                ->label('Precio Base')
+                ->money('USD')
+                ->sortable(),
+                
+            Tables\Columns\TextColumn::make('end_date')
+                ->label('Finaliza')
+                ->dateTime('d/m/Y H:i')
+                ->sortable(),
+                
+            Tables\Columns\TextColumn::make('bid_status')
+                ->label('Mi Puja')
+                ->badge()
+                ->color(fn ($record) => $record->bid_status_color)
+                ->icon(fn ($record) => match($record->bid_status) {
+                    'Puja Líder' => 'heroicon-o-trophy',
+                    'Puja Superada' => 'heroicon-o-arrow-trending-down',
+                    'Subasta Ganada' => 'heroicon-o-trophy',
+                    'Subasta Adjudicada' => 'heroicon-o-trophy',
+                    'Subasta Perdida' => 'heroicon-o-x-circle',
+                    'Subasta Fallida' => 'heroicon-o-x-circle',
+                    default => 'heroicon-o-minus-circle'
+                }),
+        ];
+    }
 
     public static function getEloquentQuery(): Builder
     {
@@ -84,234 +426,73 @@ class ResellerAuctionResource extends Resource
 
     public static function table(Table $table): Table
     {
-        return $table
-            ->poll('10s')
-            ->columns([
-                Stack::make([
-                    // Imagen del vehículo
-                    Tables\Columns\ImageColumn::make('vehicle.images')
-                        ->height(200)
-                        ->width('100%')
-                        ->defaultImageUrl(url('/images/vehiculo.png'))
-                        ->state(fn($record) => optional($record->vehicle->images()->where('is_main', true)->first())->path)
-                        ->alignment('center')
-                        ->extraAttributes([
-                            'class' => 'w-full h-[200px] object-cover rounded-t-xl',
-                        ]),
-
-                    // Grid de información
-                    Tables\Columns\Layout\Grid::make([
-                        'default' => 2,
-                        'sm' => 2,
-                    ])
-                    ->schema([
-                        Tables\Columns\TextColumn::make('start_date')
-                            ->label('Fecha')
-                            ->formatStateUsing(function (Auction $record): string {
-                                $start = Carbon::parse($record->start_date)->timezone('America/Lima');
-                                $now = now()->timezone('America/Lima');
-                                
-                                $dateStr = $start->format('d/m/Y');
-                                
-                                if ($start->gt($now)) {
-                                    $interval = $now->diff($start);
-                                    $parts = [];
-                                    
-                                    if ($interval->d > 0) {
-                                        $parts[] = "{$interval->d}d";
-                                    }
-                                    if ($interval->h > 0) {
-                                        $parts[] = "{$interval->h}h";
-                                    }
-                                    if ($interval->i > 0) {
-                                        $parts[] = "{$interval->i}m";
-                                    }
-                                    if ($interval->s > 0) {
-                                        $parts[] = "{$interval->s}s";
-                                    }
-                                    
-                                    $timeLeft = empty($parts) ? "< 1s" : implode(' ', $parts);
-                                    return "{$dateStr} (Inicia en: {$timeLeft})";
-                                }
-                                
-                                return $dateStr;
-                            })
-                            ->badge()
-                            ->color(function (Auction $record) {
-                                $start = Carbon::parse($record->start_date)->timezone('America/Lima');
-                                $now = now()->timezone('America/Lima');
-                                
-                                if ($start->gt($now)) {
-                                    $hoursRemaining = $now->diffInHours($start, false);
-                                    
-                                    if ($hoursRemaining <= 1) {
-                                        return 'danger';
-                                    } elseif ($hoursRemaining <= 6) {
-                                        return 'warning';
-                                    } elseif ($hoursRemaining <= 24) {
-                                        return 'info';
-                                    } else {
-                                        return 'success';
-                                    }
-                                }
-                                
-                                return null;
-                            })
-                            ->extraAttributes([
-                                'class' => 'text-gray-600 font-medium',
-                            ]),
-                    ])
-                    ->extraAttributes([
-                        'class' => 'gap-2 items-center',
-                    ]),
-
-                    Tables\Columns\Layout\Grid::make()
-                        ->schema([
-                            Tables\Columns\TextColumn::make('vehicle.plate')
-                                ->label('Placa')
-                                ->formatStateUsing(fn ($state): string => "Placa: {$state}")
-                                ->extraAttributes([
-                                    'class' => 'text-lg font-bold text-primary-600',
-                                ]),
-
-                            Tables\Columns\TextColumn::make('vehicle.brand.value')
-                                ->label('Marca')
-                                ->formatStateUsing(fn ($state): string => "Marca: {$state}")
-                                ->extraAttributes([
-                                    'class' => 'text-gray-600',
-                                ]),
-
-                            Tables\Columns\TextColumn::make('vehicle.model.value')
-                                ->label('Modelo')
-                                ->formatStateUsing(fn ($state): string => "Modelo: {$state}")
-                                ->extraAttributes([
-                                    'class' => 'text-gray-800',
-                                ]),
-
-                            Tables\Columns\TextColumn::make('vehicle.year_made')
-                                ->label('Año')
-                                ->formatStateUsing(fn ($state): string => "Año: {$state}")
-                                ->extraAttributes([
-                                    'class' => 'text-gray-600',
-                                ]),
-
-                            Tables\Columns\TextColumn::make('base_price')
-                                ->label('Base')
-                                ->formatStateUsing(fn ($state): string => "Base: $ " . number_format($state ?? 0, 0, '.', ','))
-                                ->extraAttributes([
-                                    'class' => 'text-success-600 font-bold',
-                                ]),
-
-                            Tables\Columns\TextColumn::make('current_price')
-                                ->label('Actual')
-                                ->formatStateUsing(fn ($state): string => "Actual: $ " . number_format($state ?? 0, 0, '.', ','))
-                                ->extraAttributes([
-                                    'class' => 'text-primary-600 font-bold',
-                                ]),
-
-                            Tables\Columns\TextColumn::make('end_date')
-                                ->formatStateUsing(function (Auction $record) {
-                                    $now = now()->timezone('America/Lima');
-                                    $startDate = Carbon::parse($record->start_date)->timezone('America/Lima');
-                                    $endDate = Carbon::parse($record->end_date)->timezone('America/Lima');
-
-                                    if ($startDate->gt($now)) {
-                                        return null;
-                                    }
-
-                                    if ($endDate->isPast()) {
-                                        return "Tiempo: Finalizada";
-                                    }
-
-                                    $remaining = $now->diff($endDate);
-                                    
-                                    if ($remaining->days > 0) {
-                                        return "Tiempo: {$remaining->days}d {$remaining->h}h {$remaining->i}m {$remaining->s}s";
-                                    } elseif ($remaining->h > 0) {
-                                        return "Tiempo: {$remaining->h}h {$remaining->i}m {$remaining->s}s";
-                                    } elseif ($remaining->i > 0) {
-                                        return "Tiempo: {$remaining->i}m {$remaining->s}s";
-                                    } else {
-                                        return "Tiempo: {$remaining->s}s";
-                                    }
-                                })
-                                ->color(function (Auction $record) {
-                                    $now = now()->timezone('America/Lima');
-                                    $startDate = Carbon::parse($record->start_date)->timezone('America/Lima');
-                                    $endDate = Carbon::parse($record->end_date)->timezone('America/Lima');
-
-                                    if ($startDate->gt($now) || $endDate->isPast()) {
-                                        return null;
-                                    }
-                                    
-                                    $hoursRemaining = $now->diffInHours($endDate, false);
-                                    
-                                    if ($hoursRemaining <= 1) {
-                                        return 'danger';
-                                    } elseif ($hoursRemaining <= 6) {
-                                        return 'warning';
-                                    } elseif ($hoursRemaining <= 24) {
-                                        return 'info';
-                                    } else {
-                                        return 'success';
-                                    }
-                                })
-                                ->extraAttributes([
-                                    'class' => 'text-gray-600 font-medium',
-                                ]),
-
-                            Tables\Columns\TextColumn::make('status.name')
-                                ->formatStateUsing(fn (string $state): string => "Estado: {$state}")
-                                ->badge()
-                                ->color(fn (string $state): string => match ($state) {
-                                    'Sin Oferta' => 'danger',
-                                    'En Proceso' => 'warning',
-                                    'Finalizada' => 'success',
-                                    default => 'gray'
-                                })
-                                ->extraAttributes([
-                                    'class' => 'text-sm',
-                                ]),
-
-                            // Agregamos el estado de la puja específico para ResellerAuction
-                            Tables\Columns\TextColumn::make('bid_status')
-                                ->label('Mi Puja')
-                                ->formatStateUsing(fn (string $state): string => "Mi Puja: {$state}")
-                                ->badge()
-                                ->color(fn ($record) => $record->bid_status_color)
-                                ->icon(fn ($record) => match($record->bid_status) {
-                                    'Puja Líder' => 'heroicon-o-trophy',
-                                    'Puja Superada' => 'heroicon-o-arrow-trending-down',
-                                    'Subasta Ganada' => 'heroicon-o-trophy',
-                                    'Subasta Adjudicada' => 'heroicon-o-trophy',
-                                    'Subasta Perdida' => 'heroicon-o-x-circle',
-                                    'Subasta Fallida' => 'heroicon-o-x-circle',
-                                    default => 'heroicon-o-minus-circle'
-                                })
-                                ->extraAttributes([
-                                    'class' => 'text-sm',
-                                ]),
-                        ])
-                        ->columns([
-                            'default' => 1,
-                            'sm' => 1,
-                            'md' => 2,
-                        ])
-                        ->extraAttributes([
-                            'class' => 'gap-y-2 p-4',
-                        ]),
-                ])
-                ->space(3)
-                ->extraAttributes([
-                    'class' => 'rounded-xl shadow-sm',
-                ]),
-            ])
-            ->contentGrid([
+        // Obtener la vista de la sesión o usar la predeterminada
+        $view = session()->get('reseller_auction_table_view', 'card');
+        
+        // Determinar las columnas según la vista seleccionada
+        $columns = match($view) {
+            'table' => self::getTableColumns(),
+            'compact' => self::getCompactColumns(),
+            default => self::getCardColumns(),
+        };
+        
+        // Determinar la configuración de grid según la vista
+        $contentGrid = match($view) {
+            'card' => [
                 'default' => 1,
                 'sm' => 1,
                 'md' => 2,
                 'xl' => 3,
+            ],
+            'table' => null,
+            'compact' => null,
+            default => [
+                'default' => 1,
+                'sm' => 1,
+                'md' => 2,
+                'xl' => 3,
+            ],
+        };
+
+        return $table
+            ->poll('10s')
+            ->headerActions([
+                Tables\Actions\Action::make('cardView')
+                    ->label('Vista Tarjetas')
+                    ->icon('heroicon-o-squares-2x2')
+                    ->button()
+                    ->size('sm')
+                    ->color(fn() => session()->get('reseller_auction_table_view', 'card') === 'card' ? 'primary' : 'gray')
+                    ->action(function () {
+                        session()->put('reseller_auction_table_view', 'card');
+                        return redirect(request()->header('Referer'));
+                    }),
+                    
+                Tables\Actions\Action::make('tableView')
+                    ->label('Vista Tabla')
+                    ->icon('heroicon-o-table-cells')
+                    ->button()
+                    ->size('sm')
+                    ->color(fn() => session()->get('reseller_auction_table_view', 'card') === 'table' ? 'primary' : 'gray')
+                    ->action(function () {
+                        session()->put('reseller_auction_table_view', 'table');
+                        return redirect(request()->header('Referer'));
+                    }),
+                    
+                Tables\Actions\Action::make('compactView')
+                    ->label('Vista Compacta')
+                    ->icon('heroicon-o-list-bullet')
+                    ->button()
+                    ->size('sm')
+                    ->color(fn() => session()->get('reseller_auction_table_view', 'card') === 'compact' ? 'primary' : 'gray')
+                    ->action(function () {
+                        session()->put('reseller_auction_table_view', 'compact');
+                        return redirect(request()->header('Referer'));
+                    }),
             ])
+            ->headerActionsPosition(HeaderActionsPosition::Bottom)
+            ->columns($columns)
+            ->contentGrid($contentGrid)
             ->actions([
                 Tables\Actions\ViewAction::make()
                     ->visible(fn (Auction $record) => $record->canBid())

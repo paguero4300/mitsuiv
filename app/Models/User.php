@@ -8,11 +8,26 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Spatie\Permission\Traits\HasRoles;
+use OwenIt\Auditing\Contracts\Auditable;
+use OwenIt\Auditing\Auditable as AuditableTrait;
 
 
-class User extends Authenticatable implements FilamentUser
+class User extends Authenticatable implements FilamentUser, Auditable
 {
-    use HasFactory, Notifiable, HasRoles;
+    use HasFactory, Notifiable, HasRoles, AuditableTrait;
+
+    // Determinar qué campos serán auditados (opcional)
+    protected $auditInclude = [
+        'name',
+        'email',
+        'custom_fields',
+    ];
+    
+    // Excluir campos sensibles de la auditoría
+    protected $auditExclude = [
+        'password',
+        'remember_token',
+    ];
 
     protected $fillable = [
         'name',
