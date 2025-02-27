@@ -16,12 +16,14 @@ class Bid extends Model implements Auditable
         'auction_id',
         'reseller_id',
         'amount',
+        'comments',
     ];
     
     protected $fillable = [
         'auction_id',
         'reseller_id',
         'amount',
+        'comments',
     ];
 
     protected $casts = [

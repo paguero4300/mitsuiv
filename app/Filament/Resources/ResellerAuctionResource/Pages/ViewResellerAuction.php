@@ -58,8 +58,16 @@ class ViewResellerAuction extends ViewRecord
                                 number_format($increment, 0, '', ',')
                             );
                         }),
+                        
+                    Forms\Components\Textarea::make('comments')
+                        ->label('Comentarios')
+                        ->placeholder('Ejemplo: Puja sujeta a inspección del vehículo')
+                        ->helperText('Puedes agregar observaciones o condiciones sobre tu puja')
+                        ->columnSpanFull()
+                        ->rows(3)
+                        ->maxLength(500),
                 ])
-                ->modalWidth('xs')
+                ->modalWidth('md')
                 ->modalAlignment('center')
                 ->beforeFormFilled(function () {
                     // Ocultar la galería cuando se abre el modal
@@ -71,7 +79,12 @@ class ViewResellerAuction extends ViewRecord
                 })
                 ->action(function (array $data, BidService $bidService): void {
                     try {
-                        $bidService->placeBid($this->record, Auth::user(), $data['amount']);
+                        $bidService->placeBid(
+                            $this->record, 
+                            Auth::user(), 
+                            $data['amount'],
+                            $data['comments'] ?? null
+                        );
                         
                         \Filament\Notifications\Notification::make()
                             ->title('Puja realizada exitosamente')

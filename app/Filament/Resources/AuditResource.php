@@ -205,17 +205,58 @@ class AuditResource extends Resource
                 Tables\Filters\SelectFilter::make('event')
                     ->label('Acción')
                     ->options([
-                        'created' => 'Creado',
-                        'updated' => 'Actualizado',
-                        'deleted' => 'Eliminado',
-                    ]),
+                        'created' => '⚡ Creado',
+                        'updated' => '✏️ Actualizado',
+                        'deleted' => '🗑️ Eliminado',
+                    ])
+                    ->multiple()
+                    ->indicateUsing(function (array $state): array {
+                        $indicators = [];
+                        
+                        if ($state !== []) {
+                            $indicators['Estado'] = '🔍 Filtrado por acciones: ' . count($state);
+                        }
+                        
+                        return $indicators;
+                    }),
                 Tables\Filters\SelectFilter::make('auditable_type')
                     ->label('Tipo de Modelo')
                     ->options(function () {
                         $types = Audit::distinct()->pluck('auditable_type')->toArray();
-                        return array_combine($types, array_map('class_basename', $types));
+                        
+                        $modelMap = [
+                            'App\\Models\\Auction' => '💰 Subasta',
+                            'App\\Models\\Bid' => '💵 Puja',
+                            'App\\Models\\User' => '👤 Usuario',
+                            'App\\Models\\Vehicle' => '🚗 Vehículo',
+                        ];
+                        
+                        $result = [];
+                        foreach ($types as $type) {
+                            $result[$type] = $modelMap[$type] ?? '📄 ' . class_basename($type);
+                        }
+                        
+                        return $result;
+                    })
+                    ->multiple()
+                    ->indicateUsing(function (array $state): array {
+                        $indicators = [];
+                        
+                        if ($state !== []) {
+                            $indicators['Modelo'] = '🔍 Filtrado por tipos: ' . count($state);
+                        }
+                        
+                        return $indicators;
                     }),
-            ])
+            ], layout: \Filament\Tables\Enums\FiltersLayout::Modal)
+            ->filtersTriggerAction(
+                fn ($action) => $action
+                    ->button()
+                    ->label('Filtros')
+                    ->icon('heroicon-m-funnel')
+                    ->color('primary')
+                    ->size('sm')
+            )
             ->actions([
                 Tables\Actions\ViewAction::make(),
             ])

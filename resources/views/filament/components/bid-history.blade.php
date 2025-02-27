@@ -3,9 +3,10 @@
         <div class="space-y-4">
             {{-- Encabezados mejorados --}}
             <div class="flex items-center gap-6 pb-3 border-b border-gray-200">
-                <div class="w-1/3 text-sm font-semibold text-gray-600">Usuario</div>
-                <div class="w-1/4 text-sm font-semibold text-gray-600">Monto</div>
-                <div class="flex-1 text-sm font-semibold text-gray-600">Fecha y Hora</div>
+                <div class="w-1/4 text-sm font-semibold text-gray-600">Usuario</div>
+                <div class="w-1/5 text-sm font-semibold text-gray-600">Monto</div>
+                <div class="w-1/5 text-sm font-semibold text-gray-600">Fecha y Hora</div>
+                <div class="flex-1 text-sm font-semibold text-gray-600">Comentarios</div>
             </div>
 
             {{-- Lista de ofertas con scroll --}}
@@ -13,7 +14,7 @@
                 @forelse($bids as $bid)
                     <div class="flex items-center gap-6 p-4 text-sm transition-colors duration-200 rounded-lg hover:bg-gray-50">
                         {{-- Usuario con avatar --}}
-                        <div class="flex items-center w-1/3 gap-3">
+                        <div class="flex items-center w-1/4 gap-3">
                             <div class="flex items-center justify-center flex-shrink-0 rounded-full w-9 h-9 bg-primary-50">
                                 <x-heroicon-o-user class="w-5 h-5 text-primary-500" />
                             </div>
@@ -21,7 +22,7 @@
                         </div>
 
                         {{-- Monto destacado --}}
-                        <div class="w-1/4">
+                        <div class="w-1/5">
                             <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-success-700 bg-success-50">
                                 <x-heroicon-o-banknotes class="w-4 h-4" />
                                 <span class="font-semibold">US$ {{ number_format($bid->amount, 2) }}</span>
@@ -29,9 +30,21 @@
                         </div>
 
                         {{-- Fecha y hora --}}
-                        <div class="flex items-center flex-1 gap-2 text-gray-500">
+                        <div class="flex items-center w-1/5 gap-2 text-gray-500">
                             <x-heroicon-o-calendar class="w-4 h-4" />
                             <span>{{ $bid->created_at->format('d/m/Y H:i:s') }}</span>
+                        </div>
+                        
+                        {{-- Comentarios --}}
+                        <div class="flex-1 text-gray-700">
+                            @if($bid->comments)
+                                <div class="flex items-start gap-2">
+                                    <x-heroicon-o-chat-bubble-left class="w-4 h-4 mt-1 text-gray-400" />
+                                    <span class="text-sm">{{ $bid->comments }}</span>
+                                </div>
+                            @else
+                                <span class="text-sm text-gray-400">Sin comentarios</span>
+                            @endif
                         </div>
                     </div>
                 @empty

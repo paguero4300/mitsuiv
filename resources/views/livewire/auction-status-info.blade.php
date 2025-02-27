@@ -199,6 +199,14 @@
                                 </span>
                             </p>
                             <p class="text-sm text-gray-500">{{ $bid->created_at->format('d/m/Y H:i:s') }}</p>
+                            @if($bid->comments)
+                                <p class="mt-2 text-sm text-gray-700">
+                                    <span class="inline-flex items-start gap-1">
+                                        <x-heroicon-o-chat-bubble-left class="w-4 h-4 mt-1 text-gray-400" />
+                                        <span>{{ $bid->comments }}</span>
+                                    </span>
+                                </p>
+                            @endif
                         </div>
                     </div>
                     <div class="mt-2 sm:mt-0">
