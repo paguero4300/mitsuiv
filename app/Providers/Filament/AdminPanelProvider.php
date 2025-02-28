@@ -51,6 +51,7 @@ class AdminPanelProvider extends PanelProvider
             ->darkMode(false)
             ->sidebarFullyCollapsibleOnDesktop()
             ->brandName('Mitsui - Subastas')
+            ->globalSearch(false)
             ->brandLogo(asset('images/logoMitsui.svg'))
             ->colors([
                 'primary' => '#0075BF'

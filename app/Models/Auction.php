@@ -281,4 +281,13 @@ class Auction extends Model implements Auditable
     {
         $this->attributes['end_date'] = $value ? Carbon::parse($value)->timezone(self::TIMEZONE) : null;
     }
+
+    /**
+     * Verifica si la subasta puede ser eliminada.
+     * Solo permite eliminar subastas sin pujas o que no han comenzado.
+     */
+    public function canBeDeleted(): bool
+    {
+        return $this->bids()->count() == 0 || $this->start_date > now();
+    }
 }

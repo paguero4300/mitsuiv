@@ -961,6 +961,25 @@ class AuctionResource extends Resource
                             ->exists();
 
                         return !$hasPermittedRole;
+                    })
+                    ->before(function (Tables\Actions\DeleteAction $action, Model $record) {
+                        if (!$record->canBeDeleted()) {
+                            Notification::make()
+                                ->title('No se puede eliminar la subasta')
+                                ->body('Esta subasta ya tiene pujas o ha comenzado. Por seguridad no se puede eliminar.')
+                                ->danger()
+                                ->send();
+                            
+                            // Detener la acción de eliminación
+                            $action->cancel();
+                        }
+                    })
+                    ->after(function () {
+                        Notification::make()
+                            ->title('Subasta eliminada')
+                            ->body('La subasta ha sido eliminada correctamente.')
+                            ->success()
+                            ->send();
                     }),
             ])
             ->bulkActions([])
