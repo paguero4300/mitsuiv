@@ -182,38 +182,49 @@
     >
         <div class="space-y-4">
             @forelse($record->bids()->with('reseller')->latest()->get() as $bid)
-                <div class="flex flex-col items-center justify-between p-5 space-y-3 bg-white border border-gray-200 rounded-xl sm:flex-row sm:space-y-0">
-                    <div class="flex items-center gap-4">
-                        <div class="flex-shrink-0">
-                            <div class="flex items-center justify-center w-12 h-12 rounded-full bg-primary-50">
-                                <x-heroicon-o-user class="w-7 h-7 text-primary-500" />
+                <div class="p-4 bg-white border border-gray-200 rounded-xl">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="flex items-center gap-3">
+                            <div class="flex-shrink-0">
+                                <div class="flex items-center justify-center w-10 h-10 rounded-full bg-primary-50">
+                                    <x-heroicon-o-user class="w-6 h-6 text-primary-500" />
+                                </div>
+                            </div>
+                            <div>
+                                <p class="text-base font-medium text-gray-900">{{ $bid->reseller->name }}</p>
+                                <p class="text-sm text-gray-500">{{ $bid->created_at->format('d/m/Y H:i:s') }}</p>
                             </div>
                         </div>
-                        <div class="text-left">
-                            <p class="text-base font-medium text-gray-900">{{ $bid->reseller->name }}</p>
-                            <p class="text-sm text-gray-500">{{ $bid->reseller->email }}</p>
-                            <p class="text-sm text-gray-500">
-                                <span class="inline-flex items-center gap-1">
-                                    <x-heroicon-o-phone class="w-4 h-4" />
-                                    {{ $bid->reseller->custom_fields['phone'] ?? 'No registrado' }}
-                                </span>
-                            </p>
-                            <p class="text-sm text-gray-500">{{ $bid->created_at->format('d/m/Y H:i:s') }}</p>
-                            @if($bid->comments)
-                                <p class="mt-2 text-sm text-gray-700">
-                                    <span class="inline-flex items-start gap-1">
-                                        <x-heroicon-o-chat-bubble-left class="w-4 h-4 mt-1 text-gray-400" />
-                                        <span>{{ $bid->comments }}</span>
-                                    </span>
-                                </p>
-                            @endif
+                        <div>
+                            <x-filament::badge size="lg" color="success">
+                                US$ {{ number_format($bid->amount, 0, '', ',') }}
+                            </x-filament::badge>
                         </div>
                     </div>
-                    <div class="mt-2 sm:mt-0">
-                        <x-filament::badge size="lg" color="success">
-                            US$ {{ number_format($bid->amount, 0, '', ',') }}
-                        </x-filament::badge>
+                    
+                    <div class="grid grid-cols-1 gap-2 mt-2 text-sm text-gray-500 sm:grid-cols-2">
+                        <p>
+                            <span class="inline-flex items-center gap-1">
+                                <x-heroicon-o-envelope class="w-4 h-4" />
+                                {{ $bid->reseller->email }}
+                            </span>
+                        </p>
+                        <p>
+                            <span class="inline-flex items-center gap-1">
+                                <x-heroicon-o-phone class="w-4 h-4" />
+                                {{ $bid->reseller->custom_fields['phone'] ?? 'No registrado' }}
+                            </span>
+                        </p>
                     </div>
+                    
+                    @if($bid->comments)
+                        <div class="pt-3 mt-3 border-t border-gray-100">
+                            <p class="flex gap-2 text-sm text-gray-500">
+                                <x-heroicon-o-chat-bubble-left class="flex-shrink-0 w-5 h-5 text-gray-400" />
+                                <span style="word-break: break-all; max-width: 100%; overflow-wrap: break-word;" class="break-all">{{ $bid->comments }}</span>
+                            </p>
+                        </div>
+                    @endif
                 </div>
             @empty
                 <div class="py-6 text-center text-gray-500">
