@@ -11,9 +11,11 @@ use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\HtmlString;
-
+use BezhanSalleh\FilamentShield\Traits\HasWidgetShield;
 class UnifiedKpiWidget extends BaseWidget
+
 {
+    use HasWidgetShield;
     protected static ?string $pollingInterval = null;
     protected static bool $isLazy = false;
     protected static ?int $sort = 4;

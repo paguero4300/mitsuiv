@@ -6,9 +6,11 @@ use Leandrocfe\FilamentApexCharts\Widgets\ApexChartWidget;
 use Illuminate\Support\Facades\DB;
 use Filament\Forms\Components\Select;
 use Filament\Support\Enums\MaxWidth;
+use BezhanSalleh\FilamentShield\Traits\HasWidgetShield;
 
 class AveragePerformanceChart extends ApexChartWidget
 {
+    use HasWidgetShield;
     protected static ?string $chartId = 'averagePerformanceChart';
     protected static ?string $heading = 'Performance de Venta Promedio ($)';
     
