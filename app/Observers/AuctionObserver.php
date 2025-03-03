@@ -79,6 +79,39 @@ class AuctionObserver
             'timestamp' => now()->format('Y-m-d H:i:s.u')
         ]);
 
+        // Verificar si la subasta cambió a estado CERRADA SIN OFERTAS
+        if ($auction->isDirty('status_id') && $auction->status_id == \App\Models\AuctionStatus::SIN_OFERTA) {
+            Log::info('========== SUBASTA CERRADA SIN OFERTAS DETECTADA - INICIANDO PROCESO DE NOTIFICACIÓN ==========', [
+                'auction_id' => $auction->id,
+                'old_status' => $auction->getOriginal('status_id'),
+                'new_status' => $auction->status_id,
+                'timestamp' => now()->format('Y-m-d H:i:s.u')
+            ]);
+
+            try {
+                // Despachar el job para notificar a los tasadores
+                Log::info('AuctionObserver: Despachando job ProcessAuctionClosedNoOffersNotification', [
+                    'auction_id' => $auction->id,
+                    'delay' => '15 segundos'
+                ]);
+                
+                \App\Jobs\ProcessAuctionClosedNoOffersNotification::dispatch(
+                    $auction->id
+                )->delay(now()->addSeconds(15));
+                
+                Log::info('AuctionObserver: Job ProcessAuctionClosedNoOffersNotification despachado correctamente');
+                
+            } catch (\Exception $e) {
+                Log::error('========== ERROR EN PROCESAMIENTO DE NOTIFICACIÓN DE SUBASTA SIN OFERTAS ==========', [
+                    'error' => $e->getMessage(),
+                    'error_class' => get_class($e),
+                    'auction_id' => $auction->id,
+                    'trace' => $e->getTraceAsString(),
+                    'timestamp' => now()->format('Y-m-d H:i:s.u')
+                ]);
+            }
+        }
+
         // Verificar si la subasta cambió a estado ADJUDICADA
         if ($auction->isDirty('status_id') && $auction->status_id == \App\Models\AuctionStatus::ADJUDICADA) {
             Log::info('========== SUBASTA ADJUDICADA DETECTADA - INICIANDO PROCESO ==========', [
