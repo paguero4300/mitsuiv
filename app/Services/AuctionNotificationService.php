@@ -273,4 +273,259 @@ class AuctionNotificationService
             ]
         ]);
     }
+
+    /**
+     * Envía notificación de subasta perdida a revendedores
+     */
+    public function sendLostAuctionNotification(array $auctionData): void
+    {
+        // Establecer zona horaria a Lima
+        date_default_timezone_set('America/Lima');
+
+        Log::info('========== INICIANDO ENVÍO DE NOTIFICACIONES A PERDEDORES DE SUBASTA ==========', [
+            'auction_id' => $auctionData['id'],
+            'vehiculo' => $auctionData['vehiculo'],
+            'timestamp' => now()->format('Y-m-d H:i:s.u')
+        ]);
+
+        // Verificar si el canal WhatsApp está habilitado
+        $whatsappEnabled = $this->isChannelEnabled('whatsapp');
+        Log::info('Canal WhatsApp: ' . ($whatsappEnabled ? '✅ HABILITADO' : '❌ DESHABILITADO'));
+        
+        if (!$whatsappEnabled) {
+            Log::warning('❌ Notificación cancelada: Canal WhatsApp no está habilitado');
+            return;
+        }
+
+        // Verificar si las notificaciones de subasta fallida están habilitadas para revendedores
+        $notificacionesHabilitadas = $this->isNotificationEnabled('revendedor', 'subasta_fallida', 'whatsapp');
+        Log::info('Notificaciones subasta_fallida para revendedores: ' . 
+            ($notificacionesHabilitadas ? '✅ HABILITADAS' : '❌ DESHABILITADAS'));
+        
+        if (!$notificacionesHabilitadas) {
+            Log::warning('❌ Notificación cancelada: Las notificaciones de subasta fallida no están habilitadas para revendedores');
+            return;
+        }
+
+        // Obtener los revendedores que perdieron la subasta
+        Log::info('Buscando revendedores perdedores', [
+            'auction_id' => $auctionData['id'],
+            'winner_id' => $auctionData['winner_id']
+        ]);
+        
+        $losers = $this->getAuctionLosers($auctionData['id'], $auctionData['winner_id']);
+        
+        Log::info('Revendedores perdedores encontrados: ' . $losers->count(), [
+            'auction_id' => $auctionData['id'],
+            'total_revendedores' => $losers->count(),
+            'ids_revendedores' => $losers->pluck('id')->toArray()
+        ]);
+
+        if ($losers->isEmpty()) {
+            Log::info('⚠️ No hay revendedores para notificar - Proceso finalizado');
+            return;
+        }
+
+        $notificacionesEnviadas = 0;
+        $notificacionesFallidas = 0;
+        $numerosNotificados = [];
+
+        Log::info('========== PROCESANDO ' . $losers->count() . ' REVENDEDORES PERDEDORES ==========');
+
+        foreach ($losers as $index => $loser) {
+            Log::info('------ Procesando revendedor ' . ($index + 1) . '/' . $losers->count() . ' ------', [
+                'revendedor_id' => $loser->id,
+                'revendedor_nombre' => $loser->name,
+                'revendedor_email' => $loser->email
+            ]);
+            
+            try {
+                // Obtener número de teléfono del revendedor
+                $customFields = json_decode($loser->custom_fields, true);
+                $phone = $customFields['phone'] ?? null;
+                
+                Log::info('Teléfono del revendedor: ' . ($phone ?: 'NO CONFIGURADO'));
+                
+                if (empty($phone)) {
+                    Log::warning('⏩ Revendedor sin número de teléfono configurado - Saltando', [
+                        'revendedor_id' => $loser->id,
+                        'revendedor_name' => $loser->name
+                    ]);
+                    continue;
+                }
+
+                // Evitar enviar a números ya notificados en esta ejecución
+                if (in_array($phone, $numerosNotificados)) {
+                    Log::info('⏩ Número ya notificado en esta ejecución - Saltando', [
+                        'phone' => $phone
+                    ]);
+                    continue;
+                }
+
+                // Verificar si ya se envió notificación previamente
+                $notificationSent = $this->isNotificationSent('subasta_fallida', 'whatsapp', $loser->id, $auctionData['id']);
+                
+                if ($notificationSent) {
+                    Log::info('⏩ Notificación ya enviada previamente - Saltando', [
+                        'user_id' => $loser->id,
+                        'auction_id' => $auctionData['id']
+                    ]);
+                    continue;
+                }
+
+                // Preparar y enviar plantilla WhatsApp
+                Log::info('Preparando plantilla WhatsApp para envío');
+                
+                $templateData = [
+                    'messaging_product' => 'whatsapp',
+                    'to' => $phone,
+                    'type' => 'template',
+                    'template' => [
+                        'name' => 'lost_auction',
+                        'language' => [
+                            'code' => 'es_PE'
+                        ],
+                        'components' => [
+                            [
+                                'type' => 'body',
+                                'parameters' => [
+                                    [
+                                        'type' => 'text',
+                                        'text' => $auctionData['vehiculo']
+                                    ],
+                                    [
+                                        'type' => 'text',
+                                        'text' => $auctionData['fecha_inicio']
+                                    ],
+                                    [
+                                        'type' => 'text',
+                                        'text' => $auctionData['fecha_fin']
+                                    ]
+                                ]
+                            ]
+                        ]
+                    ]
+                ];
+
+                Log::info('Enviando notificación WhatsApp a ' . $phone);
+
+                $response = $this->metaWaService->sendTemplateMessage($phone, $templateData);
+
+                // Registrar la notificación como enviada
+                Log::info('Respuesta recibida del servicio WhatsApp', [
+                    'message_id' => $response['messages'][0]['id'] ?? 'NO_ID'
+                ]);
+                
+                $this->logNotification('subasta_fallida', 'whatsapp', $loser->id, $auctionData['id'], [
+                    'template' => 'lost_auction',
+                    'phone' => $phone,
+                    'message_id' => $response['messages'][0]['id'] ?? null
+                ]);
+
+                // Agregar el número a la lista de notificados
+                $numerosNotificados[] = $phone;
+                $notificacionesEnviadas++;
+
+                Log::info('✅ Notificación enviada exitosamente', [
+                    'destinatario' => [
+                        'id' => $loser->id,
+                        'nombre' => $loser->name,
+                        'telefono' => $phone
+                    ],
+                    'auction_id' => $auctionData['id'],
+                    'message_id' => $response['messages'][0]['id'] ?? 'N/A'
+                ]);
+
+            } catch (\Exception $e) {
+                $notificacionesFallidas++;
+                
+                Log::error('❌ Error al enviar notificación', [
+                    'error' => $e->getMessage(),
+                    'error_class' => get_class($e),
+                    'destinatario' => [
+                        'id' => $loser->id ?? 'N/A',
+                        'nombre' => $loser->name ?? 'N/A'
+                    ],
+                    'auction_id' => $auctionData['id']
+                ]);
+            }
+        }
+
+        Log::info('========== PROCESO DE NOTIFICACIÓN A PERDEDORES COMPLETADO ==========', [
+            'auction_id' => $auctionData['id'],
+            'total_revendedores' => $losers->count(),
+            'notificaciones_enviadas' => $notificacionesEnviadas,
+            'notificaciones_fallidas' => $notificacionesFallidas,
+            'timestamp' => now()->format('Y-m-d H:i:s.u')
+        ]);
+    }
+
+    /**
+     * Obtiene los revendedores que participaron en la subasta pero no ganaron
+     */
+    private function getAuctionLosers(int $auctionId, int $winnerId): Collection
+    {
+        Log::info('========== CONSULTANDO REVENDEDORES PERDEDORES DE SUBASTA ==========', [
+            'auction_id' => $auctionId,
+            'winner_id' => $winnerId,
+            'timestamp' => now()->format('Y-m-d H:i:s.u')
+        ]);
+
+        try {
+            Log::info('Construyendo consulta SQL para encontrar perdedores');
+            
+            // Convertir el ID a string para comparar con reference_id
+            $auctionIdStr = (string)$auctionId;
+            
+            $query = User::select('users.*')
+                ->join('model_has_roles', function($join) {
+                    $join->on('users.id', '=', 'model_has_roles.model_id')
+                        ->where('model_has_roles.model_type', '=', 'App\\Models\\User');
+                })
+                ->join('roles', 'model_has_roles.role_id', '=', 'roles.id')
+                ->join('bids', 'users.id', '=', 'bids.reseller_id')
+                ->leftJoin('notification_logs', function($join) use ($auctionIdStr) {
+                    $join->on('notification_logs.user_id', '=', 'users.id')
+                        ->where('notification_logs.reference_id', '=', $auctionIdStr)
+                        ->where('notification_logs.event_type', '=', 'subasta_fallida')
+                        ->where('notification_logs.channel_type', '=', 'whatsapp');
+                })
+                ->where('roles.name', 'revendedor')
+                ->where('bids.auction_id', $auctionId)
+                ->where('users.id', '!=', $winnerId)
+                ->whereNull('notification_logs.id')
+                ->whereNotNull(DB::raw("JSON_EXTRACT(users.custom_fields, '$.phone')"))
+                ->distinct();
+            
+            // Registrar la consulta SQL para diagnóstico
+            $sql = $query->toSql();
+            $bindings = $query->getBindings();
+            
+            Log::info('Consulta SQL para encontrar perdedores', [
+                'sql' => $sql,
+                'bindings' => $bindings
+            ]);
+            
+            // Ejecutar la consulta
+            $result = $query->get();
+            
+            Log::info('Consulta ejecutada con éxito', [
+                'total_revendedores_encontrados' => $result->count(),
+                'ids_encontrados' => $result->pluck('id')->toArray()
+            ]);
+            
+            return $result;
+            
+        } catch (\Exception $e) {
+            Log::error('❌ Error al buscar revendedores perdedores', [
+                'error' => $e->getMessage(),
+                'error_class' => get_class($e),
+                'auction_id' => $auctionId,
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            // En caso de error, devolver colección vacía
+            return collect();
+        }
+    }
 } 

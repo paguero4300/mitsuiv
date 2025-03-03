@@ -26,9 +26,12 @@ class ListResellerAuctions extends ListRecords
                 ->query(function (Builder $query): Builder {
                     $baseQuery = $query->getModel()->newQuery();
                     
-                    $baseQuery->where('status_id', 2) // SIN_OFERTA
+                    $baseQuery->whereIn('status_id', [2, 3]) // SIN_OFERTA y EN_PROCESO
                         ->where('start_date', '<=', now())
-                        ->where('end_date', '>', now());
+                        ->where('end_date', '>', now())
+                        ->whereDoesntHave('bids', function (Builder $query) {
+                            $query->where('reseller_id', Auth::id());
+                        });
                     
                     return $baseQuery;
                 }),
