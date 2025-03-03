@@ -119,7 +119,21 @@ class AuctionObserver
                         $adjudication->reseller_id
                     )->delay(now()->addSeconds(30));
                     
-                    Log::info('AuctionObserver: Job despachado correctamente');
+                    Log::info('AuctionObserver: Job para perdedores despachado correctamente');
+                    
+                    // Despachar el job para notificar al ganador
+                    Log::info('AuctionObserver: Despachando job ProcessWinAuctionNotification', [
+                        'auction_id' => $auction->id,
+                        'winner_id' => $adjudication->reseller_id,
+                        'delay' => '30 segundos'
+                    ]);
+                    
+                    \App\Jobs\ProcessWinAuctionNotification::dispatch(
+                        $auction->id,
+                        $adjudication->reseller_id
+                    )->delay(now()->addSeconds(30));
+                    
+                    Log::info('AuctionObserver: Job para ganador despachado correctamente');
                 } else {
                     Log::warning('AuctionObserver: No se encontró adjudicación válida o ganador para la subasta', [
                         'auction_id' => $auction->id,

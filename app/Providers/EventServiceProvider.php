@@ -4,6 +4,8 @@ namespace App\Providers;
 
 use App\Models\Auction;
 use App\Observers\AuctionObserver;
+use App\Models\Bid;
+use App\Observers\BidObserver;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Auth\Listeners\SendEmailVerificationNotification;
 use Illuminate\Foundation\Support\Providers\EventServiceProvider as ServiceProvider;
@@ -31,6 +33,8 @@ class EventServiceProvider extends ServiceProvider
         Log::info('EventServiceProvider: Registrando observers...');
         Auction::observe(AuctionObserver::class);
         Log::info('EventServiceProvider: Observer de Auction registrado');
+        Bid::observe(BidObserver::class);
+        Log::info('EventServiceProvider: Observer de Bid registrado');
     }
 
     /**

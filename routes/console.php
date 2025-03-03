@@ -14,3 +14,7 @@ Schedule::command('auctions:update-statuses')
 Schedule::command('auctions:check-pending')
     ->everyMinute()
     ->withoutOverlapping();
+
+Schedule::command('auctions:check-ending')
+    ->everyMinute()
+    ->withoutOverlapping();
