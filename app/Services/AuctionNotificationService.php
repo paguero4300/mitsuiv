@@ -9,6 +9,7 @@ use App\Models\NotificationLog;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 
 class AuctionNotificationService
 {
@@ -20,28 +21,31 @@ class AuctionNotificationService
     }
 
     /**
-     * Verifica si un canal está activo
+     * Verifica si el canal de notificación está habilitado
      */
     protected function isChannelEnabled(string $channelType): bool
     {
-        return NotificationChannel::where('channel_type', $channelType)
-            ->where('is_enabled', true)
-            ->exists();
+        $channel = NotificationChannel::where('channel_type', $channelType)->first();
+        return $channel && $channel->is_enabled;
     }
 
     /**
-     * Verifica si una notificación está habilitada para un rol
+     * Verifica si la notificación está habilitada para un rol y canal específico
      */
     protected function isNotificationEnabled(string $roleType, string $eventType, string $channelType): bool
     {
         $channel = NotificationChannel::where('channel_type', $channelType)->first();
-        if (!$channel) return false;
-
-        return NotificationSetting::where('role_type', $roleType)
+        
+        if (!$channel) {
+            return false;
+        }
+        
+        $setting = NotificationSetting::where('role_type', $roleType)
             ->where('event_type', $eventType)
             ->where('channel_id', $channel->id)
-            ->where('is_enabled', true)
-            ->exists();
+            ->first();
+        
+        return $setting && $setting->is_enabled;
     }
 
     /**
@@ -1057,6 +1061,161 @@ class AuctionNotificationService
             'auction_id' => $notificationData['auction_id'],
             'outbid_user_id' => $outbidUserId,
             'timestamp' => now()->format('Y-m-d H:i:s.u')
+        ]);
+    }
+
+    /**
+     * Envía notificación por email de nueva subasta a revendedores
+     */
+    public function sendNewAuctionEmailNotification(array $auctionData): void
+    {
+        // Configurar zona horaria de Lima/Perú
+        date_default_timezone_set('America/Lima');
+        
+        Log::info('=== INICIANDO VALIDACIONES PARA NUEVA SUBASTA POR EMAIL ===', [
+            'auction_id' => $auctionData['id'],
+            'vehiculo' => $auctionData['vehiculo']
+        ]);
+
+        // 1. Validar que el canal Email esté habilitado
+        $emailEnabled = $this->isChannelEnabled('email');
+        Log::info('1. Validación de canal Email:', [
+            'habilitado' => $emailEnabled ? 'SÍ' : 'NO'
+        ]);
+        if (!$emailEnabled) {
+            Log::warning('❌ Canal Email no está habilitado - Notificación cancelada');
+            return;
+        }
+        Log::info('✅ Canal Email está habilitado');
+
+        // 2. Validar que la notificación esté habilitada para revendedores
+        $notificationEnabled = $this->isNotificationEnabled('revendedor', 'nueva_subasta', 'email');
+        Log::info('2. Validación de notificación por email para revendedores:', [
+            'habilitada' => $notificationEnabled ? 'SÍ' : 'NO',
+            'rol' => 'revendedor',
+            'evento' => 'nueva_subasta'
+        ]);
+        if (!$notificationEnabled) {
+            Log::warning('❌ Notificación nueva_subasta por email no está habilitada para revendedores - Notificación cancelada');
+            return;
+        }
+        Log::info('✅ Notificación nueva_subasta por email está habilitada para revendedores');
+
+        // 3. Obtener usuarios revendedores
+        $revendedores = $this->getUsersByRole('revendedor');
+        Log::info('3. Búsqueda de revendedores:', [
+            'total_encontrados' => $revendedores->count()
+        ]);
+
+        if ($revendedores->isEmpty()) {
+            Log::warning('❌ No se encontraron revendedores con email configurado - Notificación cancelada');
+            return;
+        }
+        Log::info('✅ Se encontraron revendedores para notificar');
+
+        $notificacionesEnviadas = 0;
+        $notificacionesFallidas = 0;
+        $emailsNotificados = [];
+
+        foreach ($revendedores as $revendedor) {
+            Log::info('=== Procesando revendedor para email ===', [
+                'id' => $revendedor->id,
+                'nombre' => $revendedor->name,
+                'email' => $revendedor->email
+            ]);
+
+            $email = $revendedor->email;
+
+            if (!$email || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                Log::info('⏩ Revendedor sin email válido configurado - Saltando', [
+                    'id' => $revendedor->id,
+                    'nombre' => $revendedor->name,
+                    'email' => $email
+                ]);
+                continue;
+            }
+
+            // Validar si el email ya fue notificado
+            if (in_array($email, $emailsNotificados)) {
+                Log::info('⏩ Email ya notificado anteriormente - Saltando', [
+                    'email' => $email,
+                    'nombre' => $revendedor->name
+                ]);
+                continue;
+            }
+
+            // Validar que no se haya enviado la notificación previamente
+            $notificationSent = $this->isNotificationSent('nueva_subasta', 'email', $revendedor->id, $auctionData['id']);
+            if ($notificationSent) {
+                Log::info('⏩ Notificación por email ya enviada al revendedor - Saltando', [
+                    'nombre' => $revendedor->name,
+                    'email' => $revendedor->email
+                ]);
+                continue;
+            }
+
+            try {
+                // Preparar datos para la vista del email
+                $emailData = [
+                    'vehiculo' => $auctionData['vehiculo'],
+                    'fecha_inicio' => $auctionData['fecha_inicio'],
+                    'fecha_fin' => $auctionData['fecha_fin']
+                ];
+
+                Log::info('Enviando notificación Email', [
+                    'destinatario' => $email,
+                    'email_data' => $emailData
+                ]);
+
+                // Enviar email
+                Mail::send('emails.new-auction', $emailData, function ($message) use ($email, $revendedor) {
+                    $message->to($email, $revendedor->name)
+                            ->subject('Nueva Subasta Disponible - Mitsui Automotriz');
+                });
+
+                // Registrar la notificación como enviada
+                $this->logNotification('nueva_subasta', 'email', $revendedor->id, $auctionData['id'], [
+                    'template' => 'new-auction',
+                    'email' => $email
+                ]);
+
+                // Agregar el email a la lista de notificados
+                $emailsNotificados[] = $email;
+                $notificacionesEnviadas++;
+
+                Log::info('✅ Notificación por email enviada exitosamente', [
+                    'destinatario' => [
+                        'id' => $revendedor->id,
+                        'nombre' => $revendedor->name,
+                        'email' => $email
+                    ],
+                    'auction_id' => $auctionData['id']
+                ]);
+
+            } catch (\Exception $e) {
+                $notificacionesFallidas++;
+                Log::error('Error enviando notificación por Email', [
+                    'error' => $e->getMessage(),
+                    'destinatario' => [
+                        'id' => $revendedor->id,
+                        'nombre' => $revendedor->name,
+                        'email' => $email
+                    ],
+                    'auction_id' => $auctionData['id']
+                ]);
+            }
+        }
+
+        Log::info('=== RESUMEN DEL PROCESO DE NOTIFICACIÓN POR EMAIL ===', [
+            'total_revendedores' => $revendedores->count(),
+            'notificaciones_enviadas' => $notificacionesEnviadas,
+            'notificaciones_fallidas' => $notificacionesFallidas,
+            'subasta' => [
+                'id' => $auctionData['id'],
+                'vehiculo' => $auctionData['vehiculo'],
+                'inicio' => $auctionData['fecha_inicio'],
+                'fin' => $auctionData['fecha_fin']
+            ]
         ]);
     }
 } 

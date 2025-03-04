@@ -4,6 +4,7 @@ namespace App\Observers;
 
 use App\Models\Auction;
 use App\Jobs\ProcessAuctionNotification;
+use App\Jobs\CheckPendingAuctionsEmailNotification;
 use Illuminate\Support\Facades\Log;
 
 class AuctionObserver
@@ -47,6 +48,11 @@ class AuctionObserver
             ProcessAuctionNotification::dispatch($auctionData, 'nueva_subasta');
 
             Log::info('AuctionObserver: Job de notificación despachado');
+            
+            // Disparar el job de notificación por email
+            CheckPendingAuctionsEmailNotification::dispatch();
+            
+            Log::info('AuctionObserver: Job de notificación por email despachado');
 
         } catch (\Exception $e) {
             Log::error('AuctionObserver: Error al procesar notificación', [
