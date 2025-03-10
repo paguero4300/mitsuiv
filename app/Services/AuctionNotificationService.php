@@ -197,7 +197,7 @@ class AuctionNotificationService
                     'to' => $phone,
                     'type' => 'template',
                     'template' => [
-                        'name' => 'new_auction',
+                        'name' => 'new_mitsui',
                         'language' => [
                             'code' => 'es_PE'
                         ],
@@ -208,6 +208,26 @@ class AuctionNotificationService
                                     [
                                         'type' => 'text',
                                         'text' => $auctionData['vehiculo']
+                                    ],
+                                    [
+                                        'type' => 'text',
+                                        'text' => $auctionData['marca'] ?? 'N/A'
+                                    ],
+                                    [
+                                        'type' => 'text',
+                                        'text' => $auctionData['modelo'] ?? 'N/A'
+                                    ],
+                                    [
+                                        'type' => 'text',
+                                        'text' => $auctionData['version'] ?? 'N/A'
+                                    ],
+                                    [
+                                        'type' => 'text',
+                                        'text' => $auctionData['anio'] ?? 'N/A'
+                                    ],
+                                    [
+                                        'type' => 'text',
+                                        'text' => $auctionData['kilometraje'] ?? 'N/A'
                                     ],
                                     [
                                         'type' => 'text',
@@ -232,7 +252,7 @@ class AuctionNotificationService
 
                 // Registrar la notificación como enviada
                 $this->logNotification('nueva_subasta', 'whatsapp', $revendedor->id, $auctionData['id'], [
-                    'template' => 'new_auction',
+                    'template' => 'new_mitsui',
                     'phone' => $phone,
                     'message_id' => $response['messages'][0]['id'] ?? null
                 ]);

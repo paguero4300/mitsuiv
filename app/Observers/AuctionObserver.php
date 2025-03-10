@@ -34,10 +34,20 @@ class AuctionObserver
         ]);
 
         try {
+            // Asegurar que las relaciones necesarias estén cargadas
+            if (!$auction->relationLoaded('vehicle')) {
+                $auction->load(['vehicle.brand', 'vehicle.model']);
+            }
+            
             // Preparar los datos de la subasta
             $auctionData = [
                 'id' => $auction->id,
                 'vehiculo' => $auction->vehicle->plate ?? 'N/A',
+                'marca' => $auction->vehicle->brand->value ?? 'N/A',
+                'modelo' => $auction->vehicle->model->value ?? 'N/A',
+                'version' => $auction->vehicle->version ?? 'N/A',
+                'anio' => $auction->vehicle->year_made ?? 'N/A',
+                'kilometraje' => $auction->vehicle->mileage ?? 'N/A',
                 'fecha_inicio' => $auction->start_date->timezone('America/Lima')->format('d/m/Y H:i'),
                 'fecha_fin' => $auction->end_date->timezone('America/Lima')->format('d/m/Y H:i'),
             ];
