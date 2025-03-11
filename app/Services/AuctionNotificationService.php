@@ -108,8 +108,49 @@ class AuctionNotificationService
         
         Log::info('=== INICIANDO VALIDACIONES PARA NUEVA SUBASTA ===', [
             'auction_id' => $auctionData['id'],
-            'vehiculo' => $auctionData['vehiculo']
+            'vehiculo' => $auctionData['vehiculo'],
+            'datos_completos' => [
+                'marca' => $auctionData['marca'] ?? 'No disponible',
+                'modelo' => $auctionData['modelo'] ?? 'No disponible',
+                'version' => $auctionData['version'] ?? 'No disponible',
+                'anio' => $auctionData['anio'] ?? 'No disponible',
+                'kilometraje' => $auctionData['kilometraje'] ?? 'No disponible',
+                'fecha_inicio' => $auctionData['fecha_inicio'] ?? 'No disponible',
+                'fecha_fin' => $auctionData['fecha_fin'] ?? 'No disponible'
+            ]
         ]);
+
+        // Intentar cargar datos completos si no existen
+        if (!isset($auctionData['marca']) || $auctionData['marca'] == 'N/A') {
+            Log::info('Datos de vehículo incompletos, intentando cargar desde la base de datos');
+            try {
+                $auction = \App\Models\Auction::with(['vehicle.brand', 'vehicle.model'])->find($auctionData['id']);
+                if ($auction && $auction->vehicle) {
+                    $auctionData['marca'] = $auction->vehicle->brand->value ?? 'N/A';
+                    $auctionData['modelo'] = $auction->vehicle->model->value ?? 'N/A';
+                    $auctionData['version'] = $auction->vehicle->version ?? 'N/A';
+                    $auctionData['anio'] = $auction->vehicle->year_made ?? 'N/A';
+                    $auctionData['kilometraje'] = $auction->vehicle->mileage ?? 'N/A';
+                    
+                    Log::info('Datos cargados correctamente desde la base de datos', [
+                        'marca' => $auctionData['marca'],
+                        'modelo' => $auctionData['modelo'],
+                        'version' => $auctionData['version'],
+                        'anio' => $auctionData['anio'],
+                        'kilometraje' => $auctionData['kilometraje']
+                    ]);
+                } else {
+                    Log::warning('No se pudo cargar la subasta o el vehículo', [
+                        'auction_id' => $auctionData['id']
+                    ]);
+                }
+            } catch (\Exception $e) {
+                Log::error('Error al intentar cargar datos completos del vehículo', [
+                    'error' => $e->getMessage(),
+                    'auction_id' => $auctionData['id']
+                ]);
+            }
+        }
 
         // 1. Validar que el canal WhatsApp esté habilitado
         $whatsappEnabled = $this->isChannelEnabled('whatsapp');

@@ -40,10 +40,30 @@ class ProcessAuctionNotification implements ShouldQueue
             'tipo_evento' => $this->eventType,
             'datos_subasta' => [
                 'vehiculo' => $this->auctionData['vehiculo'],
+                'marca' => $this->auctionData['marca'] ?? 'No definida',
+                'modelo' => $this->auctionData['modelo'] ?? 'No definida',
+                'version' => $this->auctionData['version'] ?? 'No definida',
+                'anio' => $this->auctionData['anio'] ?? 'No definida',
+                'kilometraje' => $this->auctionData['kilometraje'] ?? 'No definida',
                 'fecha_inicio' => $this->auctionData['fecha_inicio'] ?? 'No definida',
                 'fecha_fin' => $this->auctionData['fecha_fin'] ?? 'No definida'
             ]
         ]);
+
+        // Verificar si faltan datos importantes y registrarlos
+        $camposFaltantes = [];
+        foreach (['marca', 'modelo', 'version', 'anio', 'kilometraje'] as $campo) {
+            if (!isset($this->auctionData[$campo]) || $this->auctionData[$campo] == 'N/A') {
+                $camposFaltantes[] = $campo;
+            }
+        }
+        
+        if (!empty($camposFaltantes)) {
+            Log::warning('ProcessAuctionNotification: Algunos campos importantes están faltando o son N/A', [
+                'auction_id' => $this->auctionData['id'],
+                'campos_faltantes' => $camposFaltantes
+            ]);
+        }
 
         try {
             // Validamos que el tipo de evento sea válido
