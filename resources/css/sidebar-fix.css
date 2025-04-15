@@ -1,0 +1,69 @@
+/* Estilos para corregir el comportamiento del sidebar en Filament */
+
+/* Configuración básica del layout */
+.fi-layout {
+    display: flex !important;
+    width: 100% !important;
+    min-height: 100vh !important;
+}
+
+/* Configuración del sidebar */
+.fi-sidebar {
+    position: fixed !important; /* Mantener fijo */
+    top: 0 !important;
+    left: 0 !important;
+    height: 100vh !important;
+    width: 16rem !important; /* Ancho exacto del menú */
+    z-index: 50 !important;
+    transition: transform 0.2s ease-in-out !important;
+    background-color: #f8f9fa !important;
+}
+
+/* Contenedor principal */
+.fi-main-ctn {
+    flex: 1 !important;
+    min-width: 0 !important; /* Importante para evitar desbordamiento */
+    transition: margin-left 0.2s ease-in-out !important;
+    margin-left: 16rem !important; /* Margen igual al ancho del sidebar */
+}
+
+/* Cuando el sidebar está colapsado */
+.fi-sidebar-collapsed {
+    width: 4.5rem !important; /* Ancho reducido */
+}
+
+/* Ajustar el contenido cuando el sidebar está colapsado */
+.fi-layout:has(.fi-sidebar-collapsed) .fi-main-ctn {
+    margin-left: 4.5rem !important; /* Margen igual al ancho del sidebar colapsado */
+}
+
+/* Asegurar que los iconos del menú se muestren correctamente */
+.fi-sidebar-item-icon {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+/* Corregir la visualización de los elementos del menú */
+.fi-sidebar-item {
+    display: flex !important;
+    align-items: center !important;
+}
+
+/* Asegurar que el texto del menú se muestre correctamente */
+.fi-sidebar-item-label {
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+
+/* Soporte para navegadores que no soportan :has() */
+@supports not (selector(:has(*))) {
+    .fi-sidebar-collapsed ~ .fi-main-ctn {
+        margin-left: 4.5rem !important;
+    }
+
+    .fi-sidebar:not(.fi-sidebar-collapsed) ~ .fi-main-ctn {
+        margin-left: 16rem !important;
+    }
+}

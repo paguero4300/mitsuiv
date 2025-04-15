@@ -188,4 +188,9 @@
         transition: transform 0.3s ease !important;
         /* Transición suave para el ícono */
     }
+<<<<<<< HEAD
+=======
+
+    /* Eliminar estilos que afectan al sidebar para evitar conflictos */
+>>>>>>> main
 </style>

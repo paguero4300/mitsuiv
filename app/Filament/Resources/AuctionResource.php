@@ -1082,6 +1082,13 @@ class AuctionResource extends Resource
                                 'class' => 'text-gray-600',
                             ]),
 
+                        Tables\Columns\TextColumn::make('appraiser.name')
+                            ->label('Tasador')
+                            ->formatStateUsing(fn ($state): string => "Tasador: {$state}")
+                            ->extraAttributes([
+                                'class' => 'text-gray-600',
+                            ]),
+
                         Tables\Columns\TextColumn::make('base_price')
                             ->label('Base')
                             ->formatStateUsing(fn ($state): string => "Base: $ " . number_format((int)($state ?? 0), 0, '', ','))
@@ -1192,6 +1199,11 @@ class AuctionResource extends Resource
                 ->label('Año')
                 ->searchable()
                 ->sortable(),
+
+            Tables\Columns\TextColumn::make('appraiser.name')
+                ->label('Tasador')
+                ->searchable()
+                ->sortable(),
                 
             Tables\Columns\TextColumn::make('base_price')
                 ->label('Precio Base')
@@ -1252,10 +1264,12 @@ class AuctionResource extends Resource
                 ->searchable()
                 ->sortable(),
                 
-            Tables\Columns\TextColumn::make('base_price')
-                ->label('Precio Base')
+            Tables\Columns\TextColumn::make('current_price')
+                ->label('Precio Actual')
                 ->money('USD')
-                ->sortable(),
+                ->sortable()
+                ->weight('bold')
+                ->color('primary'),
                 
             Tables\Columns\TextColumn::make('end_date')
                 ->label('Finaliza')

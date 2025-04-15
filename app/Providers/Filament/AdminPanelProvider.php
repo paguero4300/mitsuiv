@@ -49,7 +49,8 @@ class AdminPanelProvider extends PanelProvider
             ->path('admin')
             ->login(LoginScreenPage::class)
             ->darkMode(false)
-            ->sidebarFullyCollapsibleOnDesktop()
+            ->sidebarCollapsibleOnDesktop()
+            ->collapsibleNavigationGroups(false)
             ->brandName('Mitsui - Subastas')
             ->globalSearch(false)
             ->brandLogo(asset('images/logoMitsui.svg'))
@@ -61,7 +62,6 @@ class AdminPanelProvider extends PanelProvider
                 Pages\Dashboard::class,
             ])
             ->widgets([
-                
                 Widgets\AccountWidget::class,
                 AuctionsStatsOverview::class,
                 AuctionsPerformanceChart::class,

@@ -9,6 +9,7 @@
         width: 100% !important;
     }
 
+<<<<<<< HEAD
     /* Estilos para el sidebar */
     .fi-sidebar {
         z-index: 50 !important;
@@ -19,6 +20,9 @@
         width: 16rem !important;
         background-color: #f8f9fa !important;
     }
+=======
+    /* Eliminar estilos que afectan al sidebar para evitar conflictos */
+>>>>>>> main
 </style>
 
 <footer class="footer bottom-0 left-0 z-10 w-full p-4 bg-gray-800 text-white hidden md:flex flex-col">

@@ -43,12 +43,12 @@ class ImagesRelationManager extends RelationManager
                     ->directory('vehicle-images')
                     ->required()
                     ->maxSize(5120)
-                    ->maxFiles(10)
+                    ->maxFiles(20)
                     ->reorderable()
                     ->getUploadedFileNameForStorageUsing(function ($file) {
                         return 'vehicle_image_' . uniqid() . '.' . $file->getClientOriginalExtension();
                     })
-                    ->helperText('Puedes subir hasta 10 imágenes. Máximo 5MB por imagen.')
+                    ->helperText('Puedes subir hasta 20 imágenes. Máximo 5MB por imagen.')
                     ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
                     ->imagePreviewHeight('100')
                     ->loadingIndicatorPosition('left')
@@ -89,10 +89,10 @@ class ImagesRelationManager extends RelationManager
                 IconColumn::make('is_main')
                     ->label('Principal')
                     ->boolean()
-                    ->trueIcon('heroicon-o-check-circle')
-                    ->falseIcon('heroicon-o-x-circle')
-                    ->trueColor('success')
-                    ->falseColor('danger'),
+                    ->trueIcon('heroicon-o-star')
+                    ->falseIcon('heroicon-o-star')
+                    ->trueColor('warning')
+                    ->falseColor('gray'),
 
                 // Columna que muestra el orden de la imagen
                 TextColumn::make('order')
@@ -111,10 +111,10 @@ class ImagesRelationManager extends RelationManager
                         $newImages = is_array($data['path']) ? count($data['path']) : 1;
                         
                         // Verificar límite total de imágenes
-                        if (($currentCount + $newImages) > 10) {
+                        if (($currentCount + $newImages) > 20) {
                             Notification::make()
                                 ->title('Límite de imágenes excedido')
-                                ->body('Solo puedes tener un máximo de 10 imágenes por vehículo.')
+                                ->body('Solo puedes tener un máximo de 20 imágenes por vehículo.')
                                 ->danger()
                                 ->send();
                             return;
@@ -166,6 +166,26 @@ class ImagesRelationManager extends RelationManager
                     }),
             ])
             ->actions([
+                Tables\Actions\Action::make('setMain')
+                    ->label('Marcar como Principal')
+                    ->icon('heroicon-o-star')
+                    ->color('warning')
+                    ->hidden(fn (VehicleImage $record) => $record->is_main)
+                    ->action(function (VehicleImage $record): void {
+                        // Desmarcar todas las demás imágenes como principales
+                        $record->vehicle->images()
+                            ->where('id', '!=', $record->id)
+                            ->update(['is_main' => false]);
+                        
+                        // Marcar esta imagen como principal
+                        $record->update(['is_main' => true]);
+
+                        Notification::make()
+                            ->title('Imagen marcada como principal')
+                            ->success()
+                            ->send();
+                    }),
+
                 EditAction::make()
                     ->modalHeading('Editar imagen')
                     ->action(function (VehicleImage $record, array $data): void {
@@ -197,7 +217,17 @@ class ImagesRelationManager extends RelationManager
                     }),
                 DeleteAction::make()
                     ->modalHeading('Eliminar imagen')
-                    ->modalDescription('¿Estás seguro de que deseas eliminar esta imagen? Esta acción no se puede deshacer.'),
+                    ->modalDescription('¿Estás seguro de que deseas eliminar esta imagen? Esta acción no se puede deshacer.')
+                    ->before(function (VehicleImage $record) {
+                        // No permitir eliminar si es la única imagen principal
+                        if ($record->is_main && $record->vehicle->images()->where('is_main', true)->count() <= 1) {
+                            Notification::make()
+                                ->title('No se puede eliminar la única imagen principal')
+                                ->danger()
+                                ->send();
+                            return false;
+                        }
+                    }),
             ])
             ->bulkActions([
                 // Acciones que se pueden aplicar a múltiples imágenes seleccionadas

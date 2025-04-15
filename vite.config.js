@@ -7,7 +7,13 @@ export default defineConfig({
             input: [
                 'resources/css/app.css',
                 'resources/css/filament.css',
+<<<<<<< HEAD
                 'resources/js/app.js'
+=======
+                'resources/css/sidebar-fix.css',
+                'resources/js/app.js',
+                'resources/js/sidebar-fix.js'
+>>>>>>> main
             ],
             refresh: true,
         }),
