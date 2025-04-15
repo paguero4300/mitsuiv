@@ -1,0 +1,9 @@
+.custom-right-pane {
+    width: 100%;
+}
+
+@media (min-width: 1024px) {
+    .custom-right-pane {
+        width: 50%;
+    }
+}

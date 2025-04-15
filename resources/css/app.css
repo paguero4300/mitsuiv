@@ -1,0 +1,19 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.fi-section-content-collapsible .fi-section-header-wrapper {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+}
+
+.fi-section-content-collapsible .fi-section-header-wrapper::after {
+    content: '↓';
+    margin-left: 0.5rem;
+    transition: transform 0.15s ease-in-out;
+}
+
+.fi-section-content-collapsible[aria-expanded="true"] .fi-section-header-wrapper::after {
+    transform: rotate(180deg);
+}

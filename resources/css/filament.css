@@ -1,0 +1,8 @@
+.fi-simple-header-heading {
+    color: rgb(17 24 39) !important;
+}
+
+/* Forzar el color negro incluso en modo oscuro */
+:is(.dark .fi-simple-header-heading) {
+    color: rgb(17 24 39) !important;
+} 
