@@ -1,7 +1,8 @@
 {{-- resources/views/filament/components/vehicle-gallery.blade.php --}}
 @php
-    $vehicle = \App\Models\Vehicle::with('images')->find($getRecord()->vehicle_id);
-    $images = $vehicle?->images ?? collect();
+    $vehicle = \App\Models\Vehicle::find($getRecord()->vehicle_id);
+    // Obtener las imágenes ordenadas por el campo 'order'
+    $images = $vehicle ? $vehicle->images()->orderBy('order', 'asc')->get() : collect();
     $uniqueId = uniqid('gallery-');
 @endphp
 
@@ -121,11 +122,11 @@
     @if($images->count() > 0)
         <div id="{{ $uniqueId }}" class="gallery-grid">
             @foreach($images as $image)
-                <div class="gallery-item {{ $image->is_main ? 'main-image' : '' }}" 
+                <div class="gallery-item {{ $image->order === 1 ? 'main-image' : '' }}"
                      data-src="{{ Storage::url($image->path) }}"
-                     data-sub-html="<h4>Imagen {{ $loop->iteration }}</h4>">
-                    <img src="{{ Storage::url($image->path) }}" 
-                         alt="Imagen del vehículo"
+                     data-sub-html="<h4>Imagen {{ $image->order }} {{ $image->is_main ? '(Principal)' : '' }}</h4>">
+                    <img src="{{ Storage::url($image->path) }}"
+                         alt="Imagen del vehículo {{ $image->order }}"
                          loading="lazy">
                     @if($image->is_main)
                         <div class="main-image-label">Principal</div>

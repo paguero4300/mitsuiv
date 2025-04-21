@@ -48,7 +48,7 @@ class ImagesRelationManager extends RelationManager
                     ->getUploadedFileNameForStorageUsing(function ($file) {
                         return 'vehicle_image_' . uniqid() . '.' . $file->getClientOriginalExtension();
                     })
-                    ->helperText('Puedes subir hasta 20 imágenes. Máximo 5MB por imagen.')
+                    ->helperText('Puedes subir hasta 20 imágenes. Máximo 5MB por imagen. La primera imagen será marcada como principal automáticamente.')
                     ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
                     ->imagePreviewHeight('100')
                     ->loadingIndicatorPosition('left')
@@ -59,16 +59,10 @@ class ImagesRelationManager extends RelationManager
                     ->imageResizeTargetHeight('1080')
                     ->removeUploadedFileButtonPosition('right')
                     ->uploadButtonPosition('left')
-                    ->uploadProgressIndicatorPosition('left'),
-
-                Toggle::make('is_main')
-                    ->label('Marcar Primera Imagen como Principal')
-                    ->default(false)
-                    ->helperText('Si seleccionas esta opción, la primera imagen se marcará como principal.')
-                    ->hidden(function ($record) {
-                        return $record !== null;
-                    }),
-            ]);
+                    ->uploadProgressIndicatorPosition('left')
+                    ->columnSpanFull(),
+            ])
+            ->columns(1);
     }
 
     // Define la estructura y comportamiento de la tabla que muestra las imágenes
@@ -80,8 +74,8 @@ class ImagesRelationManager extends RelationManager
                 ImageColumn::make('path')
                     ->label('Imagen')
                     ->disk('public')
-                    ->height(50)
-                    ->width(50)
+                    ->height(80)
+                    ->width(140)
                     ->square()
                     ->extraImgAttributes(['class' => 'object-cover']),
 
@@ -94,11 +88,32 @@ class ImagesRelationManager extends RelationManager
                     ->trueColor('warning')
                     ->falseColor('gray'),
 
-                // Columna que muestra el orden de la imagen
-                TextColumn::make('order')
+                // Columna que muestra el orden de la imagen (editable)
+                Tables\Columns\TextInputColumn::make('order')
                     ->label('Orden')
+                    ->type('number')
                     ->sortable()
-                    ->alignCenter(),
+                    ->alignCenter()
+                    ->rules(['integer', 'min:1', 'max:20'])
+                    ->afterStateUpdated(function (VehicleImage $record, $state) {
+                        // Convertir a entero
+                        $newOrder = (int) $state;
+
+                        // Si el nuevo orden es 1, marcar como principal
+                        if ($newOrder === 1 && !$record->is_main) {
+                            // Desmarcar todas las demás imágenes como principales
+                            $record->vehicle->images()
+                                ->where('id', '!=', $record->id)
+                                ->update(['is_main' => false]);
+
+                            // Marcar esta como principal
+                            $record->is_main = true;
+                            $record->save();
+                        }
+
+                        // Reordenar todas las imágenes
+                        $this->reorderImages($record->vehicle);
+                    }),
             ])
             ->defaultSort('order', 'asc')
             ->filters([])
@@ -109,7 +124,7 @@ class ImagesRelationManager extends RelationManager
                         $vehicle = $this->getOwnerRecord();
                         $currentCount = $vehicle->images()->count();
                         $newImages = is_array($data['path']) ? count($data['path']) : 1;
-                        
+
                         // Verificar límite total de imágenes
                         if (($currentCount + $newImages) > 20) {
                             Notification::make()
@@ -125,27 +140,30 @@ class ImagesRelationManager extends RelationManager
                             \DB::beginTransaction();
 
                             $paths = is_array($data['path']) ? $data['path'] : [$data['path']];
-                            $nextOrder = $vehicle->images()->max('order') + 1;
-                            $makeFirstMain = $data['is_main'] ?? false;
 
-                            // Si es la primera imagen del vehículo, forzar que sea principal
+                            // Siempre marcar la primera imagen como principal
+                            $vehicle->images()->update(['is_main' => false]);
+
+                            // Obtener el orden actual más alto
+                            $maxOrder = $vehicle->images()->max('order');
+                            $startOrder = $maxOrder > 0 ? $maxOrder + 1 : 1;
+
+                            // Si no hay imágenes, la primera será orden 1
                             if ($currentCount === 0) {
-                                $makeFirstMain = true;
-                            }
-
-                            // Si se va a marcar una nueva imagen como principal, desmarcar las existentes
-                            if ($makeFirstMain) {
-                                $vehicle->images()->update(['is_main' => false]);
+                                $startOrder = 1;
                             }
 
                             // Procesar cada imagen
                             foreach ($paths as $index => $path) {
                                 $vehicle->images()->create([
                                     'path' => $path,
-                                    'order' => $nextOrder + $index,
-                                    'is_main' => ($index === 0 && $makeFirstMain),
+                                    'order' => $startOrder + $index,
+                                    'is_main' => ($index === 0), // Primera imagen siempre principal
                                 ]);
                             }
+
+                            // Reordenar todas las imágenes para asegurar secuencia correcta
+                            $this->reorderImages($vehicle);
 
                             \DB::commit();
 
@@ -156,7 +174,7 @@ class ImagesRelationManager extends RelationManager
 
                         } catch (\Exception $e) {
                             \DB::rollBack();
-                            
+
                             Notification::make()
                                 ->title('Error al guardar las imágenes')
                                 ->body('Ocurrió un error al procesar las imágenes. Por favor, intenta nuevamente.')
@@ -166,49 +184,41 @@ class ImagesRelationManager extends RelationManager
                     }),
             ])
             ->actions([
-                Tables\Actions\Action::make('setMain')
-                    ->label('Marcar como Principal')
-                    ->icon('heroicon-o-star')
-                    ->color('warning')
-                    ->hidden(fn (VehicleImage $record) => $record->is_main)
-                    ->action(function (VehicleImage $record): void {
-                        // Desmarcar todas las demás imágenes como principales
-                        $record->vehicle->images()
-                            ->where('id', '!=', $record->id)
-                            ->update(['is_main' => false]);
-                        
-                        // Marcar esta imagen como principal
-                        $record->update(['is_main' => true]);
-
-                        Notification::make()
-                            ->title('Imagen marcada como principal')
-                            ->success()
-                            ->send();
-                    }),
+                // Se eliminaron los botones de 'Marcar como Principal', 'Subir Orden' y 'Bajar Orden'
+                // ya que ahora se puede cambiar el orden directamente desde la columna 'Orden'
+                // y la imagen con orden 1 se marca automáticamente como principal
 
                 EditAction::make()
                     ->modalHeading('Editar imagen')
                     ->action(function (VehicleImage $record, array $data): void {
-                        // Si se está marcando como principal
-                        if (isset($data['is_main']) && $data['is_main'] && !$record->is_main) {
+                        // Si se está cambiando el orden a 1, marcar como principal
+                        if (isset($data['order']) && (int)$data['order'] === 1 && !$record->is_main) {
                             // Desmarcar todas las demás imágenes como principales
                             $record->vehicle->images()
                                 ->where('id', '!=', $record->id)
                                 ->update(['is_main' => false]);
+
+                            // Marcar esta como principal
+                            $data['is_main'] = true;
                         }
-                        
-                        // No permitir desmarcar la única imagen principal
-                        if ($record->is_main && (!isset($data['is_main']) || !$data['is_main'])) {
+
+                        // Si es la única imagen principal, no permitir cambiar su orden de 1
+                        if ($record->is_main && isset($data['order']) && (int)$data['order'] !== 1) {
                             if ($record->vehicle->images()->where('is_main', true)->count() <= 1) {
                                 Notification::make()
-                                    ->title('Debe existir al menos una imagen principal')
+                                    ->title('La imagen principal debe tener orden 1')
                                     ->danger()
                                     ->send();
                                 return;
                             }
+                            // Si hay otras imágenes, permitir cambiar el orden y desmarcar como principal
+                            $data['is_main'] = false;
                         }
 
                         $record->update($data);
+
+                        // Reordenar las imágenes para mantener la secuencia correcta
+                        $this->reorderImages($record->vehicle);
 
                         Notification::make()
                             ->title('Imagen actualizada correctamente')
@@ -245,16 +255,71 @@ class ImagesRelationManager extends RelationManager
 
         // Reordenar las imágenes restantes
         $vehicle = $this->getOwnerRecord();
-        $images = $vehicle->images()->orderBy('order')->get();
-        
-        foreach ($images as $index => $image) {
-            $image->update(['order' => $index + 1]);
-        }
 
         // Si la imagen eliminada era la principal y hay más imágenes,
         // hacer la primera imagen la principal
-        if ($record->is_main && $images->count() > 0) {
-            $images->first()->update(['is_main' => true]);
+        if ($record->is_main && $vehicle->images()->count() > 0) {
+            $firstImage = $vehicle->images()->orderBy('order')->first();
+            $firstImage->update(['is_main' => true, 'order' => 1]);
+        }
+
+        // Reordenar todas las imágenes
+        $this->reorderImages($vehicle);
+    }
+
+    /**
+     * Reordena las imágenes de un vehículo asegurando que la principal tenga orden 1
+     * y respetando los órdenes asignados por el usuario
+     */
+    protected function reorderImages($vehicle): void
+    {
+        // Primero aseguramos que la imagen principal tenga orden 1
+        $mainImage = $vehicle->images()->where('is_main', true)->first();
+        if ($mainImage) {
+            // Solo actualizar si no es ya orden 1
+            if ($mainImage->order != 1) {
+                $mainImage->update(['order' => 1]);
+            }
+        }
+
+        // Verificar si hay imágenes con el mismo orden y resolverlo
+        $allImages = $vehicle->images()->orderBy('order')->get();
+        $usedOrders = [];
+        $maxOrder = 1; // Empezamos con 1 para la imagen principal
+
+        foreach ($allImages as $image) {
+            // Si es la imagen principal, ya le asignamos orden 1
+            if ($image->is_main) {
+                $usedOrders[1] = true;
+                continue;
+            }
+
+            $currentOrder = $image->order;
+
+            // Si el orden ya está usado o es 1 (reservado para la principal)
+            if (isset($usedOrders[$currentOrder]) || $currentOrder == 1) {
+                // Encontrar el siguiente orden disponible
+                $newOrder = empty($usedOrders) ? 2 : max(array_keys($usedOrders)) + 1;
+                $image->update(['order' => $newOrder]);
+                $usedOrders[$newOrder] = true;
+            } else {
+                // El orden no está usado, lo marcamos como usado
+                $usedOrders[$currentOrder] = true;
+            }
+
+            // Actualizar el orden máximo
+            $maxOrder = max($maxOrder, $image->order);
+        }
+
+        // Si no hay imagen principal pero hay imágenes, hacer que la primera sea principal
+        if (!$mainImage && $vehicle->images()->count() > 0) {
+            $firstImage = $vehicle->images()->orderBy('order')->first();
+            if ($firstImage) {
+                $firstImage->update(['is_main' => true, 'order' => 1]);
+
+                // Reordenar las demás imágenes para evitar duplicados
+                $this->reorderImages($vehicle);
+            }
         }
     }
 }

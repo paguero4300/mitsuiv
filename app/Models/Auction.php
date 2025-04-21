@@ -49,10 +49,10 @@ class Auction extends Model implements Auditable
     {
         return $this->belongsTo(Vehicle::class)
             ->select([
-                'id', 
-                'plate', 
-                'brand_id', 
-                'model_id', 
+                'id',
+                'plate',
+                'brand_id',
+                'model_id',
                 'version',
                 'transmission_id',
                 'body_type_id',
@@ -69,7 +69,7 @@ class Auction extends Model implements Auditable
                 'additional_description'
             ]);
     }
-    
+
     public function status()
     {
         return $this->belongsTo(AuctionStatus::class, 'status_id');
@@ -97,11 +97,11 @@ class Auction extends Model implements Auditable
 
     /**
      * Verifica si se pueden realizar pujas en la subasta
-     * 
+     *
      * Estados y transiciones permitidas:
      * - Sin Oferta (2): Estado inicial, puede recibir pujas
      * - En Proceso (3): Ya tiene pujas, puede recibir más
-     * 
+     *
      * Estados finales (no permiten pujas):
      * - Fallida (4): Cerrada sin ofertas o rechazada
      * - Ganada (5): Cerrada con ofertas, pendiente de adjudicación
@@ -112,7 +112,7 @@ class Auction extends Model implements Auditable
         // 1. Validar tiempo
         $now = now()->timezone(self::TIMEZONE);
         $timeValid = $this->start_date <= $now && $this->end_date > $now;
-        
+
         if (!$timeValid) {
             return false;
         }
@@ -147,39 +147,39 @@ class Auction extends Model implements Auditable
     public function getMinimumBidIncrement(): float
     {
         $currentPrice = $this->current_price ?? $this->base_price;
-        
+
         // Configuración por defecto si no hay setting
         $defaultIncrement = 100;
-        
+
         // Obtener todos los settings
         $allSettings = AuctionSetting::all();
         $allRanges = collect();
-        
+
         // Combinar todos los rangos de los settings
         foreach ($allSettings as $setting) {
             $ranges = collect($setting->value);
             $allRanges = $allRanges->concat($ranges);
         }
-        
+
         // Ordenar por min_value para procesar en orden
         $allRanges = $allRanges->sortBy('min_value');
-        
+
         foreach ($allRanges as $range) {
             $minValue = (float) ($range['min_value'] ?? 0);
             $maxValue = $range['max_value'] ? (float) $range['max_value'] : PHP_FLOAT_MAX;
-            
+
             if ($currentPrice >= $minValue && $currentPrice < $maxValue) {
                 return (float) ($range['increment'] ?? $defaultIncrement);
             }
         }
-        
+
         return $defaultIncrement;
     }
 
     public function getBidStatusAttribute(): string
     {
         $userBid = $this->getUserBid();
-        
+
         if (!$userBid) {
             return 'Sin Oferta';
         }
@@ -209,7 +209,7 @@ class Auction extends Model implements Auditable
 
         // Para subastas en proceso o sin oferta
         $leadingBid = $this->getLeadingBid();
-        
+
         // Si no hay puja líder (no debería ocurrir, pero por seguridad)
         if (!$leadingBid) {
             return 'Sin Oferta';
@@ -289,5 +289,19 @@ class Auction extends Model implements Auditable
     public function canBeDeleted(): bool
     {
         return $this->bids()->count() == 0 || $this->start_date > now();
+    }
+
+    /**
+     * Verifica si la subasta está en el último minuto antes de finalizar
+     *
+     * @return bool True si queda menos de 1 minuto para finalizar
+     */
+    public function isInLastMinute(): bool
+    {
+        $now = now()->timezone(self::TIMEZONE);
+        $minutesRemaining = $now->diffInMinutes($this->end_date, false);
+
+        // Si quedan menos de 1 minuto y la fecha de fin es futura
+        return $minutesRemaining >= 0 && $minutesRemaining < 1;
     }
 }
